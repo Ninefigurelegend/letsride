@@ -2,7 +2,6 @@
   "expo": {
     "name": "letsride",
     "slug": "letsride",
-    "scheme": "letsride",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,8 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.letsride.app",
-      "googleServicesFile": "./ios/letsride/GoogleService-Info.plist"
+      "bundleIdentifier": "com.anonymous.letsride"
     },
     "android": {
       "adaptiveIcon": {
@@ -25,27 +23,10 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.letsride.app",
-      "googleServicesFile": "./android/app/google-services.json"
+      "package": "com.anonymous.letsride"
     },
-    "plugins": [
-      "@react-native-google-signin/google-signin",
-      [
-        "expo-build-properties",
-        {
-          "ios": {
-            "useFrameworks": "static"
-          }
-        }
-      ]
-    ],
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "50389af7-994c-40d4-91d4-67081ce7f5ce"
-      }
     }
   }
 }
