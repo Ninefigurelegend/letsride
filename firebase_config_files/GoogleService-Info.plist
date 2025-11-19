@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>81325174904-j00us1v7mug3mej9ohk2nro5b9siku5c.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.81325174904-j00us1v7mug3mej9ohk2nro5b9siku5c</string>
+	<key>API_KEY</key>
+	<string>AIzaSyCv4NwZ8-_PhF7SZaQBTugoh_mCfLw5k1E</string>
+	<key>GCM_SENDER_ID</key>
+	<string>81325174904</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.letsride.app</string>
+	<key>PROJECT_ID</key>
+	<string>letsride-d144a</string>
+	<key>STORAGE_BUCKET</key>
+	<string>letsride-d144a.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:81325174904:ios:264d40cd0f62ac158d3d8d</string>
+</dict>
+</plist>
