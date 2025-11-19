@@ -9,6 +9,15 @@ npx expo install expo-env
 
 ## Firebase
 
+### Setup has been completed on Firebase Console
+Currently, the sign-in methods include:
+- Google
+Set up for the following app platforms have been completed:
+- Android (with SHA fingerprints)
+- Apple iOS
+- Web
+Config files have also been added.
+
 ### Firebase has been installed using 
 ```bash
 npm install firebase
@@ -43,4 +52,9 @@ const analytics = getAnalytics(app);
 ### Expo Auth Session has been installed using
 ```bash
 npx expo install expo-auth-session
+```
+
+### Google Sign-In has been installed using
+```bash
+npm install @react-native-google-signin/google-signin
 ```
