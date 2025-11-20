@@ -4,8 +4,10 @@ import { colors, typography, spacing } from '@/theme';
 import { useUserStore } from '@/stores/userStore';
 import { useAuthStore } from '@/stores/authStore';
 import { signOut } from '@/services/firebase/auth';
+import { ProfileScreenProps } from '@/types/navigation';
+import { Button } from '@/components/common';
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }: ProfileScreenProps<'Profile'>) {
   const currentUser = useUserStore((state) => state.currentUser);
   const logout = useAuthStore((state) => state.logout);
   const resetUser = useUserStore((state) => state.reset);
@@ -33,6 +35,14 @@ export default function ProfileScreen() {
             )}
           </>
         )}
+        
+        {/* Component Library Button */}
+        <Button 
+          title="View Component Library" 
+          onPress={() => navigation.navigate('ComponentLibrary')}
+          variant="outline"
+          style={styles.componentLibraryButton}
+        />
       </View>
       
       <TouchableOpacity
@@ -77,6 +87,11 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     color: colors.textSecondary,
     textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  componentLibraryButton: {
+    marginTop: spacing.xl,
+    minWidth: 200,
   },
   signOutButton: {
     backgroundColor: colors.error,

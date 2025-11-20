@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ProfileStackParamList } from '@/types/navigation';
 import ProfileScreen from '@/screens/profile/ProfileScreen';
+import ComponentExamples from '@/components/common/__examples__';
 import { colors } from '@/theme';
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -23,6 +24,11 @@ export default function ProfileNavigator() {
         name="Profile" 
         component={ProfileScreen}
         options={{ title: 'Me' }}
+      />
+      <Stack.Screen 
+        name="ComponentLibrary" 
+        component={ComponentExamples}
+        options={{ title: 'Component Library' }}
       />
     </Stack.Navigator>
   );

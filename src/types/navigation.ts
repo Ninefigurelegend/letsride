@@ -37,6 +37,7 @@ export type ProfileStackParamList = {
   Profile: undefined;
   Settings: undefined;
   About: undefined;
+  ComponentLibrary: undefined;
 };
 
 // Main Tab Navigator

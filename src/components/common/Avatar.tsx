@@ -28,9 +28,15 @@ export default function Avatar({
 
   const containerStyle = [
     styles.container,
-    { width: size, height: size, borderRadius: size / 2 },
+    { width: size, height: size },
     style,
   ];
+
+  const avatarContentStyle = {
+    width: size,
+    height: size,
+    borderRadius: size / 2,
+  };
 
   const textStyle = {
     fontSize: size * 0.4,
@@ -46,11 +52,13 @@ export default function Avatar({
 
   return (
     <View style={containerStyle}>
-      {uri ? (
-        <Image source={{ uri }} style={styles.image} />
-      ) : (
-        <Text style={[styles.initials, textStyle]}>{initials}</Text>
-      )}
+      <View style={[styles.avatarContent, avatarContentStyle]}>
+        {uri ? (
+          <Image source={{ uri }} style={styles.image} />
+        ) : (
+          <Text style={[styles.initials, textStyle]}>{initials}</Text>
+        )}
+      </View>
       {showOnlineStatus && (
         <View style={[styles.statusIndicator, statusStyle]} />
       )}
@@ -60,11 +68,13 @@ export default function Avatar({
 
 const styles = StyleSheet.create({
   container: {
+    position: 'relative',
+  },
+  avatarContent: {
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    position: 'relative',
   },
   image: {
     width: '100%',
