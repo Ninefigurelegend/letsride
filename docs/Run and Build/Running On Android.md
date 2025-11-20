@@ -32,7 +32,7 @@ npx expo prebuild
 **Option B - From Terminal:**
 ```bash
 emulator -list-avds  # List available emulators
-emulator -avd Pixel_9_Pro &  # Start specific emulator
+emulator -avd Pixel_8_Pro &  # Start specific emulator
 ```
 
 ### Step 2: Run App
