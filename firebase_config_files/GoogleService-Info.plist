@@ -6,6 +6,8 @@
 	<string>81325174904-j00us1v7mug3mej9ohk2nro5b9siku5c.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
 	<string>com.googleusercontent.apps.81325174904-j00us1v7mug3mej9ohk2nro5b9siku5c</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>81325174904-8efqvickgg64aah3arhgu27f3sb6lqjd.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyCv4NwZ8-_PhF7SZaQBTugoh_mCfLw5k1E</string>
 	<key>GCM_SENDER_ID</key>
@@ -30,5 +32,7 @@
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
 	<string>1:81325174904:ios:264d40cd0f62ac158d3d8d</string>
+	<key>DATABASE_URL</key>
+	<string>https://letsride-d144a-default-rtdb.asia-southeast1.firebasedatabase.app</string>
 </dict>
 </plist>

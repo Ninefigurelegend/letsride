@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "81325174904",
+    "firebase_url": "https://letsride-d144a-default-rtdb.asia-southeast1.firebasedatabase.app",
     "project_id": "letsride-d144a",
     "storage_bucket": "letsride-d144a.firebasestorage.app"
   },
@@ -13,6 +14,14 @@
         }
       },
       "oauth_client": [
+        {
+          "client_id": "81325174904-8efqvickgg64aah3arhgu27f3sb6lqjd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.letsride.app",
+            "certificate_hash": "1faf9c4c66b7da3790f9533888dbd94bdc2995c6"
+          }
+        },
         {
           "client_id": "81325174904-c6d86lu4cqv74strto56lqilh2ts2gl8.apps.googleusercontent.com",
           "client_type": 3
@@ -29,6 +38,13 @@
             {
               "client_id": "81325174904-c6d86lu4cqv74strto56lqilh2ts2gl8.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "81325174904-j00us1v7mug3mej9ohk2nro5b9siku5c.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.letsride.app"
+              }
             }
           ]
         }
