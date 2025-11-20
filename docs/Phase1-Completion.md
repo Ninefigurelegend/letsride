@@ -89,7 +89,9 @@ Created index files for better imports:
 
 ## 📋 Environment Setup Required
 
-You need to create a `.env` file in the project root with the following variables:
+### Using Expo App Config
+
+The app uses Expo's app config (`app.config.ts`) to manage environment variables. You need to create a `.env` file in the project root with the following variables:
 
 ```env
 # Firebase Configuration
@@ -107,6 +109,14 @@ GOOGLE_WEB_CLIENT_ID=your_google_web_client_id_here
 
 # Expo Project ID (for push notifications)
 PROJECT_ID=your_expo_project_id_here
+```
+
+These environment variables are loaded by `app.config.ts` and accessed throughout the app using:
+```typescript
+import Constants from 'expo-constants';
+
+// Access environment variables
+const apiKey = Constants.expoConfig?.extra?.firebaseApiKey;
 ```
 
 ### Getting Firebase Credentials

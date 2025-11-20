@@ -14,11 +14,12 @@ where the typescript blank template was chosen
 
 ## Accessing Environment Variables
 
-### Expo Env has been installed using
+### Expo Constants has been installed using
 ```bash
-npx expo install expo-env
+npx expo install expo-constants
 ```
-All required environment variables have been set.
+
+Environment variables are accessed via `app.config.ts` and `Constants.expoConfig.extra`.
 
 ## Firebase
 
@@ -54,24 +55,43 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
-import { env } from "expo-env";
+import Constants from "expo-constants";
 
-// Your web app's Firebase envuration
+// Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseenv = {
-    apiKey: env.FIREBASE_API_KEY,
-    authDomain: env.FIREBASE_AUTH_DOMAIN,
-    projectId: env.FIREBASE_PROJECT_ID,
-    storageBucket: env.FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: env.FIREBASE_MESSAGING_SENDER_ID,
-    appId: env.FIREBASE_APP_ID,
-    measurementId: env.FIREBASE_MEASUREMENT_ID
+const firebaseConfig = {
+    apiKey: Constants.expoConfig?.extra?.firebaseApiKey,
+    authDomain: Constants.expoConfig?.extra?.firebaseAuthDomain,
+    projectId: Constants.expoConfig?.extra?.firebaseProjectId,
+    storageBucket: Constants.expoConfig?.extra?.firebaseStorageBucket,
+    messagingSenderId: Constants.expoConfig?.extra?.firebaseMessagingSenderId,
+    appId: Constants.expoConfig?.extra?.firebaseAppId,
+    measurementId: Constants.expoConfig?.extra?.firebaseMeasurementId
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseenv);
+const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 ```
+
+### App Configuration (app.config.ts)
+
+The app uses Expo's app config to manage environment variables. Create a `.env` file in the root directory with your Firebase credentials:
+
+```env
+FIREBASE_API_KEY=your_api_key
+FIREBASE_AUTH_DOMAIN=your_auth_domain
+FIREBASE_DATABASE_URL=your_database_url
+FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_STORAGE_BUCKET=your_storage_bucket
+FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+FIREBASE_APP_ID=your_app_id
+FIREBASE_MEASUREMENT_ID=your_measurement_id
+GOOGLE_WEB_CLIENT_ID=your_google_web_client_id
+PROJECT_ID=your_expo_project_id
+```
+
+These variables are loaded into `app.config.ts` and accessed throughout the app using `Constants.expoConfig.extra`.
 
 ### Expo Auth Session has been installed using
 ```bash

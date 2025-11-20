@@ -6,12 +6,12 @@ import {
   User as FirebaseUser,
 } from 'firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { env } from 'expo-env';
+import Constants from 'expo-constants';
 import { auth } from './config';
 
 // Configure Google Sign-In
 GoogleSignin.configure({
-  webClientId: env.GOOGLE_WEB_CLIENT_ID,
+  webClientId: Constants.expoConfig?.extra?.googleWebClientId,
   offlineAccess: true,
 });
 

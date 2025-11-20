@@ -19,8 +19,8 @@
     "expo-auth-session": "~7.0.9",
     "expo-av": "~16.0.7",
     "expo-build-properties": "^1.0.9",
+    "expo-constants": "~18.0.10",
     "expo-device": "~8.0.9",
-    "expo-env": "^1.1.1",
     "expo-image": "~3.0.10",
     "expo-image-picker": "~17.0.8",
     "expo-media-library": "~18.2.0",
@@ -39,6 +39,7 @@
   "devDependencies": {
     "@types/react": "~19.1.0",
     "babel-plugin-module-resolver": "^5.0.2",
+    "babel-preset-expo": "^54.0.7",
     "typescript": "~5.9.2"
   },
   "private": true
