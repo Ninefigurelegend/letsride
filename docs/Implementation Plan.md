@@ -337,6 +337,7 @@ export type ProfileStackParamList = {
   Profile: undefined;
   Settings: undefined;
   About: undefined;
+  ComponentLibrary: undefined; // Dev/Testing screen
 };
 
 // Main Tab Navigator
@@ -1755,13 +1756,13 @@ export default function MainTabNavigator() {
 - `EventsNavigator.tsx` ✅ - Stack navigator for Events tab
 - `PeopleNavigator.tsx` ✅ - Stack navigator for People tab
 - `ChatsNavigator.tsx` ✅ - Stack navigator for Chats tab
-- `ProfileNavigator.tsx` ✅ - Stack navigator for Me/Profile tab
+- `ProfileNavigator.tsx` ✅ - Stack navigator for Me/Profile tab (includes ComponentLibrary screen for development)
 
 **Placeholder Screens** (all created, awaiting Phase 3+ implementation):
 - `EventsFeedScreen.tsx` ✅ - Shows "Coming soon..."
 - `PeopleListScreen.tsx` ✅ - Shows "Coming soon..."
 - `ChatListScreen.tsx` ✅ - Shows "Coming soon..."
-- `ProfileScreen.tsx` ✅ - Shows "Coming soon..."
+- `ProfileScreen.tsx` ✅ - Displays current user info + Sign Out + Component Library button
 
 **File**: `/src/navigation/AppNavigator.tsx` ✅
 
@@ -2095,9 +2096,22 @@ const styles = StyleSheet.create({
 - ✅ All navigation structure (AppNavigator, AuthNavigator, MainTabNavigator, 4 stack navigators)
 - ✅ All placeholder screens (Events, People, Chats, Profile)
 - ✅ All common components (Input, Button, Avatar, Card)
+- ✅ Component examples screen (__examples__.tsx) accessible from Profile
+- ✅ Component documentation (README.md) in common components folder
 - ✅ Tab icons with Ionicons
 - ✅ Proper loading states and auth gating
 - ✅ Consistent styling across components using theme system
+
+**Files Created/Modified** (Phase 2):
+- `src/components/common/Button.tsx` - New
+- `src/components/common/Avatar.tsx` - New
+- `src/components/common/Card.tsx` - New
+- `src/components/common/__examples__.tsx` - New (Component showcase)
+- `src/components/common/README.md` - New (Documentation)
+- `src/components/common/index.ts` - Updated (Added exports)
+- `src/navigation/ProfileNavigator.tsx` - Updated (Added ComponentLibrary route)
+- `src/screens/profile/ProfileScreen.tsx` - Updated (Added Component Library button)
+- `src/types/navigation.ts` - Updated (Added ComponentLibrary to ProfileStackParamList)
 
 **Components Created**:
 1. **Input** - Fully-featured text input with left/right elements (Phase 1)
@@ -2111,6 +2125,14 @@ const styles = StyleSheet.create({
 - Reusable and customizable
 - Consistent styling with theme constants
 - Platform-agnostic (works on iOS, Android, Web)
+
+**Developer Tools**:
+- ✅ **Component Library Screen** (`__examples__.tsx`) - Showcases all UI components with live examples
+  - Accessible from Profile screen via "View Component Library" button
+  - Displays all button variants, avatar options, card styles, and input configurations
+  - Includes a combined example showing components working together
+  - Useful for development, design reference, and QA testing
+- ✅ **Component Documentation** (`README.md`) - Comprehensive usage guide for all common components
 
 **Next Steps**: Begin Phase 3 - Events Module
 
