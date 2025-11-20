@@ -8,18 +8,18 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:81325174904:android:8c55d23c9b94f2f68d3d8d",
+        "mobilesdk_app_id": "1:81325174904:android:16b96aef8932dd8e8d3d8d",
         "android_client_info": {
-          "package_name": "com.letsride.app"
+          "package_name": "com.letsride.remake"
         }
       },
       "oauth_client": [
         {
-          "client_id": "81325174904-8efqvickgg64aah3arhgu27f3sb6lqjd.apps.googleusercontent.com",
+          "client_id": "81325174904-vflgvoehjrodrdgina45qo9me45734oe.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.letsride.app",
-            "certificate_hash": "1faf9c4c66b7da3790f9533888dbd94bdc2995c6"
+            "package_name": "com.letsride.remake",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
           }
         },
         {

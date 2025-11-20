@@ -17,7 +17,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.letsride.app',
+    bundleIdentifier: 'com.letsride.remake',
     googleServicesFile: './firebase_config_files/GoogleService-Info.plist',
   },
   android: {
@@ -27,7 +27,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
-    package: 'com.letsride.app',
+    package: 'com.letsride.remake',
     googleServicesFile: './firebase_config_files/google-services.json',
   },
   web: {

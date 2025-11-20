@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>81325174904-j00us1v7mug3mej9ohk2nro5b9siku5c.apps.googleusercontent.com</string>
+	<string>81325174904-uiosoi03v98377tvf9qa74hjn2pd1t9t.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.81325174904-j00us1v7mug3mej9ohk2nro5b9siku5c</string>
+	<string>com.googleusercontent.apps.81325174904-uiosoi03v98377tvf9qa74hjn2pd1t9t</string>
 	<key>ANDROID_CLIENT_ID</key>
 	<string>81325174904-8efqvickgg64aah3arhgu27f3sb6lqjd.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
@@ -15,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.letsride.app</string>
+	<string>com.letsride.remake</string>
 	<key>PROJECT_ID</key>
 	<string>letsride-d144a</string>
 	<key>STORAGE_BUCKET</key>
@@ -31,7 +31,7 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:81325174904:ios:264d40cd0f62ac158d3d8d</string>
+	<string>1:81325174904:ios:3b48e72b22df19b28d3d8d</string>
 	<key>DATABASE_URL</key>
 	<string>https://letsride-d144a-default-rtdb.asia-southeast1.firebasedatabase.app</string>
 </dict>

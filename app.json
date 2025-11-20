@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.letsride.app",
+      "bundleIdentifier": "com.letsride.remake",
       "googleServicesFile": "./firebase_config_files/GoogleService-Info.plist"
     },
     "android": {
@@ -25,7 +25,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.letsride.app",
+      "package": "com.letsride.remake",
       "googleServicesFile": "./firebase_config_files/google-services.json"
     },
     "plugins": [
