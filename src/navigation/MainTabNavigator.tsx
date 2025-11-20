@@ -1,5 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 import { MainTabParamList } from '@/types/navigation';
 import EventsNavigator from './EventsNavigator';
 import PeopleNavigator from './PeopleNavigator';
@@ -27,6 +28,9 @@ export default function MainTabNavigator() {
         component={EventsNavigator}
         options={{
           tabBarLabel: 'Events',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -34,6 +38,9 @@ export default function MainTabNavigator() {
         component={PeopleNavigator}
         options={{
           tabBarLabel: 'People',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -41,6 +48,9 @@ export default function MainTabNavigator() {
         component={ChatsNavigator}
         options={{
           tabBarLabel: 'Chats',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubbles-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -48,9 +58,11 @@ export default function MainTabNavigator() {
         component={ProfileNavigator}
         options={{
           tabBarLabel: 'Me',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" size={size} color={color} />
+          ),
         }}
       />
     </Tab.Navigator>
   );
 }
-

@@ -103,6 +103,15 @@ npx expo install expo-auth-session
 npm install @react-native-google-signin/google-signin
 ```
 
+## Auth Persistence
+
+### AsyncStorage has been installed using
+```bash
+npx expo install @react-native-async-storage/async-storage
+```
+
+Required for Firebase Auth to persist authentication state across app restarts.
+
 ## State Management
 
 ### Zustand has been installed using
@@ -117,6 +126,13 @@ npm install zustand
 npm install @react-navigation/native @react-navigation/native-stack @react-navigation/bottom-tabs @react-navigation/material-top-tabs
 npx expo install react-native-screens react-native-safe-area-context react-native-pager-view
 ```
+
+### Vector Icons have been installed using
+```bash
+npx expo install @expo/vector-icons
+```
+
+Used for tab bar icons and other UI elements throughout the app.
 
 ## Media Handling
 
