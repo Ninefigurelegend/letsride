@@ -5,8 +5,6 @@ import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 // Auth Navigator
 export type AuthStackParamList = {
   Welcome: undefined;
-  Login: undefined;
-  Register: undefined;
   ProfileSetup: { 
     firebaseUserId: string;
     displayName: string;

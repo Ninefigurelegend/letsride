@@ -1,17 +1,57 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Image,
   TouchableOpacity,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { AuthScreenProps } from '@/types/navigation';
+import { signInWithGoogle } from '@/services/firebase/auth';
+import { getUserById } from '@/services/firebase/firestore';
+import { useAuthStore } from '@/stores/authStore';
+import { useUserStore } from '@/stores/userStore';
 import { colors, typography, spacing } from '@/theme';
 
 export default function WelcomeScreen({
   navigation,
 }: AuthScreenProps<'Welcome'>) {
+  const [isLoading, setIsLoading] = useState(false);
+  const setAuthUser = useAuthStore((state) => state.setUser);
+  const setCurrentUser = useUserStore((state) => state.setCurrentUser);
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    
+    try {
+      // Sign in with Google
+      const firebaseUser = await signInWithGoogle();
+      
+      // Check if user exists in Firestore
+      const existingUser = await getUserById(firebaseUser.uid);
+      
+      if (existingUser) {
+        // User exists, set user data
+        setAuthUser(firebaseUser);
+        setCurrentUser(existingUser);
+      } else {
+        // New user, navigate to profile setup
+        navigation.navigate('ProfileSetup', {
+          firebaseUserId: firebaseUser.uid,
+          displayName: firebaseUser.displayName || 'Rider',
+          photoURL: firebaseUser.photoURL || '',
+        });
+      }
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      Alert.alert('Sign In Failed', error.message || 'Please try again');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
@@ -32,10 +72,15 @@ export default function WelcomeScreen({
       {/* Actions */}
       <View style={styles.actions}>
         <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={() => navigation.navigate('Login')}
+          style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
+          onPress={handleGoogleSignIn}
+          disabled={isLoading}
         >
-          <Text style={styles.primaryButtonText}>Sign In with Google</Text>
+          {isLoading ? (
+            <ActivityIndicator color={colors.white} />
+          ) : (
+            <Text style={styles.primaryButtonText}>Continue with Google</Text>
+          )}
         </TouchableOpacity>
         
         <Text style={styles.termsText}>
@@ -84,6 +129,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: spacing.md,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   primaryButtonText: {
     fontSize: typography.fontSize.base,
