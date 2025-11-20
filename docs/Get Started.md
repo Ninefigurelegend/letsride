@@ -140,3 +140,12 @@ Used for tab bar icons and other UI elements throughout the app.
 ```bash
 npx expo install expo-image-picker expo-image expo-av expo-media-library
 ```
+
+## Date & Time Pickers
+
+### React Native DateTime Picker has been installed using
+```bash
+npx expo install @react-native-community/datetimepicker
+```
+
+Used for selecting dates and times when creating events. Provides platform-specific UI (iOS spinner, Android modal).
