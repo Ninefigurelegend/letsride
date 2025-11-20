@@ -2142,6 +2142,21 @@ const styles = StyleSheet.create({
 
 **Goal**: Implement event creation, browsing, and participation features.
 
+**Prerequisites** (Completed in previous phases):
+- ✅ Firebase Firestore service configured
+- ✅ Event types defined in `/src/types/models.ts`
+- ✅ UI components available (Button, Card, Avatar, Input)
+- ✅ EventsNavigator with EventsFeedScreen placeholder
+- ✅ Navigation structure in place
+
+**What's New in Phase 3:**
+- Events service layer (CRUD operations)
+- Events Zustand store
+- Full implementation of EventsFeedScreen
+- New EventDetailsScreen (modal)
+- New CreateEventScreen (modal)
+- Event filtering and participation logic
+
 ### Tasks
 
 #### 3.1 Events Service
@@ -2388,20 +2403,313 @@ export const useEventsStore = create<EventsState>((set) => ({
 
 #### 3.3 Events Screens
 
-Create placeholder screens:
-- `/src/screens/events/EventsFeedScreen.tsx`
-- `/src/screens/events/EventDetailsScreen.tsx`
-- `/src/screens/events/CreateEventScreen.tsx`
+**Status**: EventsFeedScreen already exists as placeholder
 
-*Note: Full implementation of these screens should include UI for listing events, showing event details, creating events with form validation, and managing event participation.*
+**Screens to implement:**
+- ✅ `/src/screens/events/EventsFeedScreen.tsx` - Already exists, needs full implementation
+- ⏳ `/src/screens/events/EventDetailsScreen.tsx` - Create new
+- ⏳ `/src/screens/events/CreateEventScreen.tsx` - Create new
+
+**Available Components** (from Phase 2):
+- `Button` - Use for "Join Event", "Create Event", "Leave Event" actions
+- `Card` - Use for event list items and event detail sections
+- `Avatar` - Use for displaying event creator and participants
+- `Input` - Use for event creation form (title, description, location)
+
+**Implementation Requirements:**
+- EventsFeedScreen should display events in scrollable list with filters
+- EventDetailsScreen should show full event info with participant list
+- CreateEventScreen should have form with validation for all event fields
+- Use established UI components for consistency
+- Follow theme system for styling
+
+#### 3.4 UI Component Usage in Events Module
+
+**EventsFeedScreen Example:**
+
+```typescript
+import React, { useEffect } from 'react';
+import { FlatList, View, Text, StyleSheet } from 'react-native';
+import { Card, Avatar, Button } from '@/components/common';
+import { useEventsStore } from '@/stores/eventsStore';
+import { useUserStore } from '@/stores/userStore';
+import { colors, typography, spacing } from '@/theme';
+
+export default function EventsFeedScreen({ navigation }) {
+  const events = useEventsStore((state) => state.events);
+  const currentUser = useUserStore((state) => state.currentUser);
+
+  const renderEventCard = ({ item: event }) => {
+    const isParticipant = event.participants.includes(currentUser?.id);
+    const isCreator = event.createdBy === currentUser?.id;
+
+    return (
+      <Card style={styles.eventCard}>
+        <View style={styles.eventHeader}>
+          <Avatar 
+            name={event.creatorName} 
+            uri={event.creatorAvatar}
+            size={40}
+          />
+          <View style={styles.eventInfo}>
+            <Text style={styles.eventTitle}>{event.title}</Text>
+            <Text style={styles.eventDate}>{formatDate(event.startsAt)}</Text>
+            <Text style={styles.eventLocation}>{event.locationName}</Text>
+          </View>
+        </View>
+        
+        <Text style={styles.eventDescription} numberOfLines={2}>
+          {event.description}
+        </Text>
+        
+        <View style={styles.participants}>
+          <Text style={styles.participantCount}>
+            {event.participants.length} riders going
+          </Text>
+        </View>
+        
+        <View style={styles.actions}>
+          <Button 
+            title="View Details"
+            onPress={() => navigation.navigate('EventDetails', { eventId: event.id })}
+            variant="outline"
+            size="sm"
+            style={styles.detailsButton}
+          />
+          {!isCreator && (
+            <Button 
+              title={isParticipant ? "Leave" : "Join"}
+              onPress={() => handleToggleParticipation(event.id)}
+              variant={isParticipant ? "ghost" : "primary"}
+              size="sm"
+            />
+          )}
+        </View>
+      </Card>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={events}
+        renderItem={renderEventCard}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+      />
+    </View>
+  );
+}
+```
+
+**CreateEventScreen Example:**
+
+```typescript
+import React, { useState } from 'react';
+import { ScrollView, View, StyleSheet } from 'react-native';
+import { Input, Button } from '@/components/common';
+import { colors, spacing } from '@/theme';
+
+export default function CreateEventScreen({ navigation }) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [location, setLocation] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  
+  const [errors, setErrors] = useState({
+    title: '',
+    description: '',
+    location: '',
+  });
+
+  const handleCreateEvent = async () => {
+    // Validation and creation logic
+    setIsCreating(true);
+    try {
+      await createEvent(currentUser.id, {
+        title,
+        description,
+        locationName: location,
+        // ... other fields
+      });
+      navigation.goBack();
+    } catch (error) {
+      // Handle error
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const isValid = title.length >= 3 && description.length >= 10 && location.length >= 3;
+
+  return (
+    <ScrollView style={styles.container}>
+      <Input
+        label="Event Title"
+        value={title}
+        onChangeText={setTitle}
+        placeholder="Weekend Ride to Big Sur"
+        error={errors.title}
+        helperText="Give your event a catchy title"
+      />
+
+      <Input
+        label="Description"
+        value={description}
+        onChangeText={setDescription}
+        placeholder="Describe your event..."
+        multiline
+        numberOfLines={4}
+        error={errors.description}
+      />
+
+      <Input
+        label="Location"
+        value={location}
+        onChangeText={setLocation}
+        placeholder="Meeting point"
+        error={errors.location}
+      />
+
+      <Button
+        title="Create Event"
+        onPress={handleCreateEvent}
+        isLoading={isCreating}
+        disabled={!isValid}
+        style={styles.createButton}
+      />
+    </ScrollView>
+  );
+}
+```
+
+**EventDetailsScreen Example:**
+
+```typescript
+import React from 'react';
+import { ScrollView, View, Text, StyleSheet } from 'react-native';
+import { Card, Avatar, Button } from '@/components/common';
+
+export default function EventDetailsScreen({ route }) {
+  const { eventId } = route.params;
+  const event = useEventsStore((state) => 
+    state.events.find(e => e.id === eventId)
+  );
+
+  return (
+    <ScrollView style={styles.container}>
+      <Card>
+        <Text style={styles.title}>{event.title}</Text>
+        <Text style={styles.description}>{event.description}</Text>
+      </Card>
+
+      <Card elevated={false}>
+        <Text style={styles.sectionTitle}>Participants</Text>
+        <View style={styles.participantList}>
+          {event.participants.map(participant => (
+            <Avatar 
+              key={participant.id}
+              name={participant.name}
+              uri={participant.avatarUrl}
+              size={50}
+              style={styles.participantAvatar}
+            />
+          ))}
+        </View>
+      </Card>
+
+      <Button 
+        title="Join This Event"
+        onPress={handleJoin}
+        style={styles.joinButton}
+      />
+    </ScrollView>
+  );
+}
+```
+
+#### 3.5 Navigation Updates
+
+**Status**: EventsNavigator already exists with EventsFeed route
+
+**Updates needed:**
+- Add `EventDetails` modal screen to EventsNavigator
+- Add `CreateEvent` modal screen to EventsNavigator
+
+**File**: `/src/navigation/EventsNavigator.tsx`
+
+```typescript
+import React from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { EventsStackParamList } from '@/types/navigation';
+import EventsFeedScreen from '@/screens/events/EventsFeedScreen';
+import EventDetailsScreen from '@/screens/events/EventDetailsScreen'; // NEW
+import CreateEventScreen from '@/screens/events/CreateEventScreen'; // NEW
+import { colors } from '@/theme';
+
+const Stack = createNativeStackNavigator<EventsStackParamList>();
+
+export default function EventsNavigator() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: colors.surface,
+        },
+        headerTintColor: colors.textPrimary,
+        headerTitleStyle: {
+          fontWeight: '600',
+        },
+      }}
+    >
+      <Stack.Screen 
+        name="EventsFeed" 
+        component={EventsFeedScreen}
+        options={{ title: 'Events' }}
+      />
+      {/* NEW: Add these modal screens */}
+      <Stack.Screen 
+        name="EventDetails" 
+        component={EventDetailsScreen}
+        options={{ 
+          presentation: 'modal',
+          title: 'Event Details'
+        }}
+      />
+      <Stack.Screen 
+        name="CreateEvent" 
+        component={CreateEventScreen}
+        options={{ 
+          presentation: 'modal',
+          title: 'Create Event'
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
+```
 
 ### Testing Requirements
 
+**Functionality:**
 - [ ] Events can be created with all required fields
 - [ ] Events appear in the correct filtered views
 - [ ] Users can join and leave events
 - [ ] Event creators can edit and delete their events
 - [ ] Security rules prevent unauthorized access
+
+**UI Components Integration:**
+- [ ] Button components respond correctly to loading/disabled states
+- [ ] Card components display event information clearly
+- [ ] Avatar components show event creator and participants
+- [ ] Input components validate event form fields correctly
+- [ ] All components follow theme styling consistently
+
+**Navigation:**
+- [ ] EventsFeed → EventDetails navigation works
+- [ ] EventsFeed → CreateEvent navigation works
+- [ ] Modal screens dismiss correctly
+- [ ] Back navigation preserves state
 
 ### Success Criteria
 
@@ -2409,6 +2717,9 @@ Create placeholder screens:
 - [ ] Events store manages state correctly
 - [ ] Events screens render and navigate properly
 - [ ] Event filtering works as expected
+- [ ] UI components used consistently throughout events module
+- [ ] Form validation prevents invalid event creation
+- [ ] Loading states provide clear user feedback
 
 ---
 
