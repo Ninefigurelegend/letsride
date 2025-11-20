@@ -3,6 +3,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '@/types/navigation';
 import WelcomeScreen from '@/screens/auth/WelcomeScreen';
 import LoginScreen from '@/screens/auth/LoginScreen';
+import ProfileSetupScreen from '@/screens/auth/ProfileSetupScreen';
+import { colors } from '@/theme';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -15,6 +17,19 @@ export default function AuthNavigator() {
     >
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen 
+        name="ProfileSetup" 
+        component={ProfileSetupScreen}
+        options={{
+          headerShown: true,
+          headerTitle: 'Setup Profile',
+          headerBackVisible: false,
+          headerStyle: {
+            backgroundColor: colors.surface,
+          },
+          headerTintColor: colors.textPrimary,
+        }}
+      />
     </Stack.Navigator>
   );
 }

@@ -9,11 +9,7 @@ import {
 } from 'react-native';
 import { AuthScreenProps } from '@/types/navigation';
 import { signInWithGoogle } from '@/services/firebase/auth';
-import {
-  createUser,
-  getUserById,
-  isHandleAvailable,
-} from '@/services/firebase/firestore';
+import { getUserById } from '@/services/firebase/firestore';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserStore } from '@/stores/userStore';
 import { colors, typography, spacing } from '@/theme';
@@ -38,36 +34,12 @@ export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
         setAuthUser(firebaseUser);
         setCurrentUser(existingUser);
       } else {
-        // New user, create profile
-        // Generate unique handle from display name
-        let handle = firebaseUser.displayName
-          ?.toLowerCase()
-          .replace(/\s+/g, '')
-          .substring(0, 15) || 'rider';
-        
-        // Ensure handle is unique
-        let handleIsUnique = await isHandleAvailable(handle);
-        let counter = 1;
-        
-        while (!handleIsUnique) {
-          handle = `${handle}${counter}`;
-          handleIsUnique = await isHandleAvailable(handle);
-          counter++;
-        }
-        
-        // Create user document
-        await createUser(firebaseUser.uid, {
-          handle,
-          name: firebaseUser.displayName || 'Rider',
-          avatarUrl: firebaseUser.photoURL || '',
-          bio: '',
+        // New user, navigate to profile setup
+        navigation.navigate('ProfileSetup', {
+          firebaseUserId: firebaseUser.uid,
+          displayName: firebaseUser.displayName || 'Rider',
+          photoURL: firebaseUser.photoURL || '',
         });
-        
-        // Fetch newly created user
-        const newUser = await getUserById(firebaseUser.uid);
-        
-        setAuthUser(firebaseUser);
-        setCurrentUser(newUser);
       }
     } catch (error: any) {
       console.error('Sign in error:', error);

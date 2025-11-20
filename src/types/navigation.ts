@@ -7,6 +7,11 @@ export type AuthStackParamList = {
   Welcome: undefined;
   Login: undefined;
   Register: undefined;
+  ProfileSetup: { 
+    firebaseUserId: string;
+    displayName: string;
+    photoURL: string;
+  };
 };
 
 // Events Stack
