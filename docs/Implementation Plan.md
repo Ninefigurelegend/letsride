@@ -1,7 +1,7 @@
 # LetsRide Implementation Plan
 
-> **Last Updated**: November 20, 2025
-> **Status**: Phase 1 Complete - Ready for Phase 2 
+> **Last Updated**: November 20, 2025  
+> **Status**: Phase 1 Complete ✅ | Phase 2 In Progress (85% Complete - Navigation Done, 3 UI Components Remaining) 
 
 ## Table of Contents
 
@@ -55,7 +55,7 @@ This implementation plan provides a step-by-step guide for building LetsRide, a 
 |-------|------|----------|--------------|----------|--------|
 | 0 | Project Foundation | 1-2 days | None | Critical | ✅ Complete |
 | 1 | Authentication & User Management | 3-5 days | Phase 0 | Critical | ✅ Complete |
-| 2 | Core Navigation & UI Structure | 2-3 days | Phase 1 | Critical | ⏳ Ready |
+| 2 | Core Navigation & UI Structure | 2-3 days | Phase 1 | Critical | 🔄 85% Complete |
 | 3 | Events Module | 5-7 days | Phase 2 | High | Pending |
 | 4 | Social Module | 4-6 days | Phase 2 | High | Pending |
 | 5 | Messaging Module | 7-10 days | Phase 2, 4 | High | Pending |
@@ -305,8 +305,11 @@ import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 // Auth Navigator
 export type AuthStackParamList = {
   Welcome: undefined;
-  Login: undefined;
-  Register: undefined;
+  ProfileSetup: { 
+    firebaseUserId: string;
+    displayName: string;
+    photoURL: string;
+  };
 };
 
 // Events Stack
@@ -917,6 +920,8 @@ export async function isHandleAvailable(handle: string): Promise<boolean> {
 
 **File**: `/src/stores/authStore.ts`
 
+Enhanced with `isProfileLoading` to handle separate loading states for Firebase Auth and Firestore profile.
+
 ```typescript
 import { create } from 'zustand';
 import { User as FirebaseUser } from 'firebase/auth';
@@ -926,11 +931,13 @@ interface AuthState {
   user: FirebaseUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isProfileLoading: boolean; // NEW: Separate loading state for Firestore profile
   error: string | null;
   
   // Actions
   setUser: (user: FirebaseUser | null) => void;
   setLoading: (isLoading: boolean) => void;
+  setProfileLoading: (isProfileLoading: boolean) => void; // NEW
   setError: (error: string | null) => void;
   clearError: () => void;
   logout: () => void;
@@ -941,6 +948,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   isLoading: true,
+  isProfileLoading: false,
   error: null,
   
   // Actions
@@ -954,6 +962,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   
   setLoading: (isLoading) => set({ isLoading }),
   
+  setProfileLoading: (isProfileLoading) => set({ isProfileLoading }),
+  
   setError: (error) => set({ error, isLoading: false }),
   
   clearError: () => set({ error: null }),
@@ -963,10 +973,19 @@ export const useAuthStore = create<AuthState>((set) => ({
       user: null,
       isAuthenticated: false,
       isLoading: false,
+      isProfileLoading: false,
       error: null,
     }),
 }));
 ```
+
+**Why `isProfileLoading`?**
+
+This separate loading state prevents UI flickering during the profile fetch:
+- `isLoading`: True while checking Firebase Auth state (very fast)
+- `isProfileLoading`: True while fetching Firestore profile (can be slower)
+- Users see loading screen until BOTH are complete
+- Prevents flash of auth screen when profile is being loaded
 
 #### 1.4 User Store (Zustand)
 
@@ -1023,26 +1042,66 @@ export const useUserStore = create<UserState>((set) => ({
 **File**: `/src/screens/auth/WelcomeScreen.tsx`
 
 ```typescript
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Image,
   TouchableOpacity,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { AuthScreenProps } from '@/types/navigation';
+import { signInWithGoogle } from '@/services/firebase/auth';
+import { getUserById } from '@/services/firebase/firestore';
+import { useAuthStore } from '@/stores/authStore';
+import { useUserStore } from '@/stores/userStore';
 import { colors, typography, spacing } from '@/theme';
 
 export default function WelcomeScreen({
   navigation,
 }: AuthScreenProps<'Welcome'>) {
+  const [isLoading, setIsLoading] = useState(false);
+  const setAuthUser = useAuthStore((state) => state.setUser);
+  const setCurrentUser = useUserStore((state) => state.setCurrentUser);
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    
+    try {
+      // Sign in with Google
+      const firebaseUser = await signInWithGoogle();
+      
+      // Check if user exists in Firestore
+      const existingUser = await getUserById(firebaseUser.uid);
+      
+      if (existingUser) {
+        // Existing user - set user data and proceed to app
+        setAuthUser(firebaseUser);
+        setCurrentUser(existingUser);
+      } else {
+        // New user - navigate to profile setup
+        navigation.navigate('ProfileSetup', {
+          firebaseUserId: firebaseUser.uid,
+          displayName: firebaseUser.displayName || 'Rider',
+          photoURL: firebaseUser.photoURL || '',
+        });
+      }
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      Alert.alert('Sign In Failed', error.message || 'Please try again');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
         {/* Logo/Icon */}
         <Image
-          source={require('@/assets/icon.png')}
+          source={require('../../../assets/icon.png')}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -1057,10 +1116,15 @@ export default function WelcomeScreen({
       {/* Actions */}
       <View style={styles.actions}>
         <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={() => navigation.navigate('Login')}
+          style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
+          onPress={handleGoogleSignIn}
+          disabled={isLoading}
         >
-          <Text style={styles.primaryButtonText}>Sign In with Google</Text>
+          {isLoading ? (
+            <ActivityIndicator color={colors.white} />
+          ) : (
+            <Text style={styles.primaryButtonText}>Continue with Google</Text>
+          )}
         </TouchableOpacity>
         
         <Text style={styles.termsText}>
@@ -1110,6 +1174,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.md,
   },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
   primaryButtonText: {
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semibold,
@@ -1124,166 +1191,300 @@ const styles = StyleSheet.create({
 });
 ```
 
-**File**: `/src/screens/auth/LoginScreen.tsx`
+**File**: `/src/screens/auth/ProfileSetupScreen.tsx`
 
+This comprehensive onboarding screen allows new users to complete their profile before accessing the app.
+
+**Key Features**:
+- **Handle Selection**: Users choose a unique @handle (3-15 characters, alphanumeric + underscores)
+- **Real-time Validation**: Immediate feedback on handle availability and format
+- **Smart Suggestions**: Auto-generated handle suggestions based on Google display name
+- **Display Name**: Customizable name (defaults to Google profile name)
+- **Profile Photo**: Upload from gallery or use Google profile photo
+- **Visual Feedback**: Loading states, checkmarks, error messages, and suggestions
+
+**Implementation Highlights**:
 ```typescript
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
-import { AuthScreenProps } from '@/types/navigation';
-import { signInWithGoogle } from '@/services/firebase/auth';
-import {
-  createUser,
-  getUserById,
-  isHandleAvailable,
-} from '@/services/firebase/firestore';
-import { useAuthStore } from '@/stores/authStore';
-import { useUserStore } from '@/stores/userStore';
-import { colors, typography, spacing } from '@/theme';
+// Validation utilities for handle format and availability
+import { validateHandleFormat, sanitizeHandle, generateHandleSuggestions } from '@/utils/validation';
 
-export default function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
-  const [isLoading, setIsLoading] = useState(false);
-  const setAuthUser = useAuthStore((state) => state.setUser);
-  const setCurrentUser = useUserStore((state) => state.setCurrentUser);
+// Profile photo upload to Firebase Storage
+import { uploadProfilePhoto } from '@/services/firebase/storage';
 
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    
-    try {
-      // Sign in with Google
-      const firebaseUser = await signInWithGoogle();
-      
-      // Check if user exists in Firestore
-      const existingUser = await getUserById(firebaseUser.uid);
-      
-      if (existingUser) {
-        // User exists, set user data
-        setAuthUser(firebaseUser);
-        setCurrentUser(existingUser);
-      } else {
-        // New user, create profile
-        // Generate unique handle from display name
-        let handle = firebaseUser.displayName
-          ?.toLowerCase()
-          .replace(/\s+/g, '')
-          .substring(0, 15) || 'rider';
-        
-        // Ensure handle is unique
-        let handleIsUnique = await isHandleAvailable(handle);
-        let counter = 1;
-        
-        while (!handleIsUnique) {
-          handle = `${handle}${counter}`;
-          handleIsUnique = await isHandleAvailable(handle);
-          counter++;
-        }
-        
-        // Create user document
-        await createUser(firebaseUser.uid, {
-          handle,
-          name: firebaseUser.displayName || 'Rider',
-          avatarUrl: firebaseUser.photoURL || '',
-          bio: '',
-        });
-        
-        // Fetch newly created user
-        const newUser = await getUserById(firebaseUser.uid);
-        
-        setAuthUser(firebaseUser);
-        setCurrentUser(newUser);
-      }
-    } catch (error: any) {
-      console.error('Sign in error:', error);
-      Alert.alert('Sign In Failed', error.message || 'Please try again');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+// Real-time handle availability checking
+const checkHandleAvailability = async (handleToCheck: string) => {
+  const validation = validateHandleFormat(handleToCheck);
+  if (!validation.isValid) {
+    setError(validation.error || 'Invalid handle');
+    return false;
+  }
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Welcome Back</Text>
-        <Text style={styles.subtitle}>
-          Sign in to continue to LetsRide
-        </Text>
-      </View>
-      
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
-          onPress={handleGoogleSignIn}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color={colors.white} />
-          ) : (
-            <>
-              {/* Add Google icon here */}
-              <Text style={styles.buttonText}>Continue with Google</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
+  const available = await isHandleAvailable(handleToCheck);
+  if (!available) {
+    setError('This handle is already taken');
+    return false;
+  }
+  
+  setError('');
+  return true;
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-  },
-  title: {
-    fontSize: typography.fontSize['3xl'],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  subtitle: {
-    fontSize: typography.fontSize.base,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  actions: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xl,
-  },
-  button: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    borderRadius: 12,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.white,
-    marginLeft: spacing.sm,
-  },
+// Create user profile after validation
+await createUser(firebaseUserId, {
+  handle,
+  name: name.trim(),
+  avatarUrl: finalAvatarUrl,
+  bio: '',
 });
 ```
 
-#### 1.6 Auth Initialization Hook
+**User Flow**:
+1. User signs in with Google on WelcomeScreen
+2. If new user (no Firestore profile), navigate to ProfileSetupScreen
+3. User sees Google photo and name pre-filled
+4. User can tap photo to upload new image from gallery
+5. User enters unique handle with real-time validation
+6. Suggestions appear if user hasn't typed yet
+7. Checkmark appears when handle is valid and available
+8. User taps Continue to create Firestore profile
+9. Profile photo uploads to Firebase Storage (if changed)
+10. User document created in Firestore
+11. User automatically proceeds to main app
+
+#### 1.6 Handle Validation Utilities
+
+**File**: `/src/utils/validation.ts`
+
+```typescript
+/**
+ * Validate handle format
+ * Rules:
+ * - Must be 3-15 characters
+ * - Lowercase alphanumeric and underscores only
+ * - Must start with a letter
+ * - Cannot end with underscore
+ * - No consecutive underscores
+ */
+export function validateHandleFormat(handle: string): {
+  isValid: boolean;
+  error?: string;
+} {
+  if (!handle || handle.length === 0) {
+    return { isValid: false, error: 'Handle is required' };
+  }
+
+  if (handle.length < 3) {
+    return { isValid: false, error: 'Handle must be at least 3 characters' };
+  }
+
+  if (handle.length > 15) {
+    return { isValid: false, error: 'Handle must be 15 characters or less' };
+  }
+
+  if (!/^[a-z]/.test(handle)) {
+    return { isValid: false, error: 'Handle must start with a letter' };
+  }
+
+  if (!/^[a-z][a-z0-9_]*$/.test(handle)) {
+    return {
+      isValid: false,
+      error: 'Handle can only contain lowercase letters, numbers, and underscores',
+    };
+  }
+
+  if (handle.endsWith('_')) {
+    return { isValid: false, error: 'Handle cannot end with an underscore' };
+  }
+
+  if (/__/.test(handle)) {
+    return { isValid: false, error: 'Handle cannot have consecutive underscores' };
+  }
+
+  return { isValid: true };
+}
+
+/**
+ * Sanitize handle input by removing invalid characters
+ */
+export function sanitizeHandle(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '') // Remove invalid characters
+    .replace(/__+/g, '_') // Replace multiple underscores with single
+    .substring(0, 15); // Enforce max length
+}
+
+/**
+ * Generate handle suggestions from a name
+ */
+export function generateHandleSuggestions(name: string): string[] {
+  const base = name
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .substring(0, 12);
+
+  if (!base || !/^[a-z]/.test(base)) {
+    return ['rider123', 'biker456', 'moto789'];
+  }
+
+  const suggestions: string[] = [base];
+
+  // Add variations with numbers
+  suggestions.push(`${base}${Math.floor(Math.random() * 100)}`);
+  suggestions.push(`${base}${Math.floor(Math.random() * 1000)}`);
+
+  // Add variations with common suffixes
+  if (base.length <= 11) {
+    suggestions.push(`${base}_moto`);
+    suggestions.push(`${base}_ride`);
+  }
+
+  return suggestions.slice(0, 5);
+}
+```
+
+#### 1.7 Firebase Storage Service
+
+**File**: `/src/services/firebase/storage.ts`
+
+```typescript
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from './config';
+
+/**
+ * Upload profile photo to Firebase Storage
+ */
+export async function uploadProfilePhoto(
+  uri: string,
+  userId: string
+): Promise<string> {
+  try {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+
+    const filename = `profile_${Date.now()}.jpg`;
+    const storageRef = ref(storage, `media/avatars/${userId}/${filename}`);
+
+    await uploadBytes(storageRef, blob);
+
+    const downloadURL = await getDownloadURL(storageRef);
+    return downloadURL;
+  } catch (error) {
+    console.error('Error uploading profile photo:', error);
+    throw error;
+  }
+}
+
+/**
+ * Upload event image to Firebase Storage
+ */
+export async function uploadEventImage(
+  uri: string,
+  eventId: string
+): Promise<string> {
+  // Implementation for Phase 3
+}
+
+/**
+ * Upload chat media to Firebase Storage
+ */
+export async function uploadChatMedia(
+  uri: string,
+  chatId: string,
+  messageId: string,
+  type: 'image' | 'video'
+): Promise<string> {
+  // Implementation for Phase 5
+}
+```
+
+#### 1.8 Reusable Input Component
+
+**File**: `/src/components/common/Input.tsx`
+
+A fully-featured, reusable text input component with support for labels, errors, helper text, and left/right elements.
+
+```typescript
+import React from 'react';
+import {
+  TextInput,
+  View,
+  Text,
+  StyleSheet,
+  TextInputProps,
+  ViewStyle,
+} from 'react-native';
+import { colors, typography, spacing } from '@/theme';
+
+interface InputProps extends TextInputProps {
+  label?: string;
+  error?: string;
+  helperText?: string;
+  containerStyle?: ViewStyle;
+  leftElement?: React.ReactNode;  // For @ symbol, icons, etc.
+  rightElement?: React.ReactNode; // For checkmarks, loading indicators, etc.
+}
+
+export default function Input({
+  label,
+  error,
+  helperText,
+  containerStyle,
+  leftElement,
+  rightElement,
+  ...textInputProps
+}: InputProps) {
+  return (
+    <View style={[styles.container, containerStyle]}>
+      {label && <Text style={styles.label}>{label}</Text>}
+      
+      <View style={[styles.inputContainer, error && styles.inputError]}>
+        {leftElement && <View style={styles.leftElement}>{leftElement}</View>}
+        
+        <TextInput
+          style={[styles.input, leftElement ? styles.inputWithLeft : null]}
+          placeholderTextColor={colors.gray400}
+          {...textInputProps}
+        />
+        
+        {rightElement && <View style={styles.rightElement}>{rightElement}</View>}
+      </View>
+      
+      {error && <Text style={styles.errorText}>{error}</Text>}
+      {helperText && !error && <Text style={styles.helperText}>{helperText}</Text>}
+    </View>
+  );
+}
+```
+
+**Usage in ProfileSetupScreen**:
+```typescript
+<Input
+  label="Handle"
+  value={handle}
+  onChangeText={handleChangeText}
+  onBlur={handleBlur}
+  placeholder="e.g., johnrider"
+  autoCapitalize="none"
+  leftElement={<Text style={styles.atSymbol}>@</Text>}
+  rightElement={
+    isChecking ? (
+      <ActivityIndicator size="small" color={colors.primary} />
+    ) : isHandleValid ? (
+      <Text style={styles.checkmark}>✓</Text>
+    ) : null
+  }
+  error={error}
+  helperText="3-15 characters: lowercase letters, numbers, and underscores"
+/>
+```
+
+#### 1.9 Auth Initialization Hook
 
 **File**: `/src/hooks/useAuthInit.ts`
+
+Enhanced with separate profile loading state to prevent UI flickering.
 
 ```typescript
 import { useEffect } from 'react';
@@ -1294,48 +1495,65 @@ import { useUserStore } from '@/stores/userStore';
 
 /**
  * Initialize authentication state listener
+ * Handles both Firebase Auth and Firestore profile loading
  */
 export function useAuthInit() {
   const setAuthUser = useAuthStore((state) => state.setUser);
   const setLoading = useAuthStore((state) => state.setLoading);
+  const setProfileLoading = useAuthStore((state) => state.setProfileLoading);
   const setCurrentUser = useUserStore((state) => state.setCurrentUser);
   const resetUser = useUserStore((state) => state.reset);
 
   useEffect(() => {
     setLoading(true);
-    
+
     const unsubscribe = onAuthStateChange(async (firebaseUser) => {
       if (firebaseUser) {
-        // User signed in, fetch user profile
+        // User signed in with Firebase Auth - set them as authenticated FIRST
+        setAuthUser(firebaseUser);
+
+        // Start loading user profile
+        setProfileLoading(true);
+
+        // Try to fetch user profile from Firestore
         try {
           const userProfile = await getUserById(firebaseUser.uid);
-          setAuthUser(firebaseUser);
           setCurrentUser(userProfile);
         } catch (error) {
-          console.error('Error fetching user profile:', error);
-          setAuthUser(null);
+          // Profile doesn't exist yet (new user in ProfileSetup flow)
+          // Keep Firebase user authenticated, but profile remains empty
+          console.log('User profile not found - likely in setup process');
           resetUser();
+        } finally {
+          setProfileLoading(false);
         }
       } else {
         // User signed out
         setAuthUser(null);
         resetUser();
+        setProfileLoading(false);
       }
     });
 
     return () => unsubscribe();
-  }, [setAuthUser, setLoading, setCurrentUser, resetUser]);
+  }, [setAuthUser, setLoading, setProfileLoading, setCurrentUser, resetUser]);
 }
 ```
 
+**Key Enhancement**: Separate `isProfileLoading` state prevents the auth screen from flashing when the Firestore profile is being fetched but the user is already authenticated with Firebase Auth.
+
 ### Testing Requirements
 
-- [ ] Google Sign-In flow works on both iOS and Android
-- [ ] New users are automatically created in Firestore
-- [ ] Existing users can sign in successfully
-- [ ] User handles are unique
-- [ ] Auth state persists across app restarts
-- [ ] Sign out functionality works correctly
+- [x] Google Sign-In flow works on both iOS and Android
+- [x] New users navigate to ProfileSetupScreen after sign-in
+- [x] Existing users proceed directly to main app
+- [x] User handles are validated and unique
+- [x] Handle suggestions are relevant and helpful
+- [x] Profile photo upload works from gallery
+- [x] Auth state persists across app restarts
+- [x] Sign out functionality works correctly
+- [x] Real-time handle validation provides immediate feedback
+- [x] Loading states prevent UI flickering
 
 ### Success Criteria
 
@@ -1344,24 +1562,58 @@ export function useAuthInit() {
 - [x] Auth state is managed in Zustand stores
 - [x] Auth state persists correctly
 - [x] Error handling is implemented
+- [x] Profile setup provides smooth onboarding experience
+- [x] Handle validation is robust and user-friendly
 
 ### ✅ Phase 1 Completed
 
 **Completion Date**: November 20, 2025
 
 **Deliverables**:
-- ✅ Google Sign-In authentication with Firebase Auth
-- ✅ User profile creation and management in Firestore
-- ✅ Auth state management with Zustand stores (authStore, userStore)
-- ✅ Authentication screens (Welcome, Login, ProfileSetup)
-- ✅ Auth initialization hook with proper state management
-- ✅ Navigation structure separating auth and main app flows
-- ✅ Profile photo upload with Firebase Storage
-- ✅ Handle validation and uniqueness checking
-- ✅ Proper loading states to eliminate auth flash issues
-- ✅ Error handling throughout authentication flow
-- ✅ Firebase Security Rules for authentication and user data
-- ✅ TypeScript types for navigation and user models
+- ✅ **Google Sign-In authentication** with Firebase Auth
+- ✅ **Smart auth flow**: Existing users → main app, new users → profile setup
+- ✅ **Comprehensive ProfileSetupScreen** with:
+  - Unique handle selection with real-time validation
+  - Smart handle suggestions based on display name
+  - Profile photo upload from gallery
+  - Display name customization
+  - Visual feedback (checkmarks, loading, errors)
+  - Cannot be skipped or bypassed
+- ✅ **User profile creation** and management in Firestore
+- ✅ **Enhanced auth state management** with:
+  - `authStore`: Firebase Auth state + separate profile loading state
+  - `userStore`: Firestore user profile data
+  - Prevents UI flickering during profile fetch
+- ✅ **Reusable Input component** with left/right element support
+- ✅ **Validation utilities**: Handle format, sanitization, suggestions
+- ✅ **Firebase Storage integration**: Profile photo upload service
+- ✅ **Auth initialization hook** with dual loading states
+- ✅ **Navigation structure** separating auth and main app flows
+- ✅ **Proper loading states** to eliminate auth flash issues
+- ✅ **Error handling** throughout authentication flow
+- ✅ **Firebase Security Rules** for authentication and user data
+- ✅ **TypeScript types** for navigation and user models
+
+**Key Architectural Decisions**:
+1. **Merged Login into Welcome**: Simplified to single entry point
+2. **ProfileSetupScreen replaces post-auth profile creation**: Better UX with guided onboarding
+3. **Separate loading states**: `isLoading` (auth) vs `isProfileLoading` (profile fetch)
+4. **Handle-first approach**: Users choose handle before accessing app (immutable)
+5. **Smart validation**: Real-time feedback with suggestions improves success rate
+
+**Files Created** (11 total):
+- `src/screens/auth/WelcomeScreen.tsx`
+- `src/screens/auth/ProfileSetupScreen.tsx`
+- `src/components/common/Input.tsx`
+- `src/utils/validation.ts`
+- `src/services/firebase/storage.ts`
+- `src/hooks/useAuthInit.ts`
+- `src/stores/authStore.ts` (enhanced)
+- `src/stores/userStore.ts`
+- `src/navigation/AuthNavigator.tsx`
+- `src/types/navigation.ts` (updated)
+- `src/services/firebase/auth.ts`
+- `src/services/firebase/firestore.ts`
 
 **Next Steps**: Begin Phase 2 - Core Navigation & UI Structure
 
@@ -1369,20 +1621,35 @@ export function useAuthInit() {
 
 ## Phase 2: Core Navigation & UI Structure
 
-**Goal**: Implement the navigation structure and create reusable UI components.
+**Goal**: Complete reusable UI components library (navigation already implemented).
 
-### Tasks
+**Status**: 85% Complete - Navigation structure 100% complete ✅ | 3 UI components remaining ⏳
 
-#### 2.1 Navigation Setup
+**Progress Summary**:
+- ✅ **All Navigation** (100%) - AppNavigator, AuthNavigator, MainTabNavigator, 4 stack navigators
+- ✅ **All Placeholder Screens** (100%) - EventsFeed, PeopleList, ChatList, Profile
+- ✅ **Input Component** (100%) - Created in Phase 1 with full feature set
+- ⏳ **Remaining Components** (0%) - Button, Avatar, Card
 
-**File**: `/src/navigation/AuthNavigator.tsx`
+**What Changed from Original Plan**:
+- Navigation was completed ahead of schedule during Phase 1 implementation
+- Input component was created during Phase 1 to support ProfileSetupScreen
+- Only the Button, Avatar, and Card components remain to be created
+- Chatroom screen moved to Phase 5 (Messaging Module) where it properly belongs
+
+### 2.1 ✅ Navigation Setup (COMPLETED)
+
+All navigation structure has been implemented:
+
+**File**: `/src/navigation/AuthNavigator.tsx` ✅
 
 ```typescript
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '@/types/navigation';
 import WelcomeScreen from '@/screens/auth/WelcomeScreen';
-import LoginScreen from '@/screens/auth/LoginScreen';
+import ProfileSetupScreen from '@/screens/auth/ProfileSetupScreen';
+import { colors } from '@/theme';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -1394,26 +1661,36 @@ export default function AuthNavigator() {
       }}
     >
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
-      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen 
+        name="ProfileSetup" 
+        component={ProfileSetupScreen}
+        options={{
+          headerShown: true,
+          headerTitle: 'Setup Profile',
+          headerBackVisible: false,
+          headerStyle: {
+            backgroundColor: colors.surface,
+          },
+          headerTintColor: colors.textPrimary,
+        }}
+      />
     </Stack.Navigator>
   );
 }
 ```
 
-**File**: `/src/navigation/MainTabNavigator.tsx`
+**File**: `/src/navigation/MainTabNavigator.tsx` ✅
 
 ```typescript
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 import { MainTabParamList } from '@/types/navigation';
 import EventsNavigator from './EventsNavigator';
 import PeopleNavigator from './PeopleNavigator';
 import ChatsNavigator from './ChatsNavigator';
 import ProfileNavigator from './ProfileNavigator';
 import { colors } from '@/theme';
-
-// Import icons (use react-native-vector-icons or similar)
-// import Icon from 'react-native-vector-icons/Ionicons';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -1435,9 +1712,9 @@ export default function MainTabNavigator() {
         component={EventsNavigator}
         options={{
           tabBarLabel: 'Events',
-          // tabBarIcon: ({ color, size }) => (
-          //   <Icon name="calendar-outline" size={size} color={color} />
-          // ),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -1445,9 +1722,9 @@ export default function MainTabNavigator() {
         component={PeopleNavigator}
         options={{
           tabBarLabel: 'People',
-          // tabBarIcon: ({ color, size }) => (
-          //   <Icon name="people-outline" size={size} color={color} />
-          // ),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -1455,9 +1732,9 @@ export default function MainTabNavigator() {
         component={ChatsNavigator}
         options={{
           tabBarLabel: 'Chats',
-          // tabBarIcon: ({ color, size }) => (
-          //   <Icon name="chatbubbles-outline" size={size} color={color} />
-          // ),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubbles-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tab.Screen
@@ -1465,9 +1742,9 @@ export default function MainTabNavigator() {
         component={ProfileNavigator}
         options={{
           tabBarLabel: 'Me',
-          // tabBarIcon: ({ color, size }) => (
-          //   <Icon name="person-outline" size={size} color={color} />
-          // ),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" size={size} color={color} />
+          ),
         }}
       />
     </Tab.Navigator>
@@ -1475,7 +1752,19 @@ export default function MainTabNavigator() {
 }
 ```
 
-**File**: `/src/navigation/AppNavigator.tsx`
+**Additional Navigators** (all completed):
+- `EventsNavigator.tsx` ✅ - Stack navigator for Events tab
+- `PeopleNavigator.tsx` ✅ - Stack navigator for People tab
+- `ChatsNavigator.tsx` ✅ - Stack navigator for Chats tab
+- `ProfileNavigator.tsx` ✅ - Stack navigator for Me/Profile tab
+
+**Placeholder Screens** (all created, awaiting Phase 3+ implementation):
+- `EventsFeedScreen.tsx` ✅ - Shows "Coming soon..."
+- `PeopleListScreen.tsx` ✅ - Shows "Coming soon..."
+- `ChatListScreen.tsx` ✅ - Shows "Coming soon..."
+- `ProfileScreen.tsx` ✅ - Shows "Coming soon..."
+
+**File**: `/src/navigation/AppNavigator.tsx` ✅
 
 ```typescript
 import React from 'react';
@@ -1483,10 +1772,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/navigation';
 import { useAuthStore } from '@/stores/authStore';
+import { useUserStore } from '@/stores/userStore';
 import { useAuthInit } from '@/hooks/useAuthInit';
 import AuthNavigator from './AuthNavigator';
 import MainTabNavigator from './MainTabNavigator';
-import ChatroomScreen from '@/screens/chats/ChatroomScreen';
 import { ActivityIndicator, View } from 'react-native';
 import { colors } from '@/theme';
 
@@ -1495,10 +1784,12 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function AppNavigator() {
   // Initialize auth state listener
   useAuthInit();
-  
-  const { isAuthenticated, isLoading } = useAuthStore();
 
-  if (isLoading) {
+  const { isAuthenticated, isLoading, isProfileLoading } = useAuthStore();
+  const { currentUser } = useUserStore();
+
+  // Show loading while auth is initializing OR profile is loading
+  if (isLoading || isProfileLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -1506,23 +1797,16 @@ export default function AppNavigator() {
     );
   }
 
+  // User must be authenticated AND have a profile to access main app
+  const hasCompletedOnboarding = isAuthenticated && currentUser !== null;
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!isAuthenticated ? (
+        {!hasCompletedOnboarding ? (
           <Stack.Screen name="Auth" component={AuthNavigator} />
         ) : (
-          <>
-            <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-            <Stack.Screen
-              name="Chatroom"
-              component={ChatroomScreen}
-              options={{
-                headerShown: true,
-                presentation: 'card',
-              }}
-            />
-          </>
+          <Stack.Screen name="MainTabs" component={MainTabNavigator} />
         )}
       </Stack.Navigator>
     </NavigationContainer>
@@ -1530,7 +1814,21 @@ export default function AppNavigator() {
 }
 ```
 
-#### 2.2 Common UI Components
+**Key Features**:
+- **Dual loading check**: Shows loading during both auth initialization AND profile fetch
+- **Onboarding gate**: Requires both Firebase Auth AND Firestore profile before main app access
+- **Simplified structure**: Chatroom screen moved to Phase 5 (belongs in Messaging Module)
+- **Smart routing**: New users stay in AuthNavigator until profile setup is complete
+
+### 2.2 Common UI Components
+
+**Status**: 1 of 4 components completed
+
+#### ✅ Input Component (COMPLETED in Phase 1)
+
+Already implemented with full feature set. See Phase 1 section for details.
+
+#### ⏳ Button Component (TODO)
 
 **File**: `/src/components/common/Button.tsx`
 
@@ -1663,6 +1961,8 @@ const styles = StyleSheet.create({
 });
 ```
 
+#### ⏳ Avatar Component (TODO)
+
 **File**: `/src/components/common/Avatar.tsx`
 
 ```typescript
@@ -1729,6 +2029,8 @@ const styles = StyleSheet.create({
 });
 ```
 
+#### ⏳ Card Component (TODO)
+
 **File**: `/src/components/common/Card.tsx`
 
 ```typescript
@@ -1763,19 +2065,72 @@ const styles = StyleSheet.create({
 
 ### Testing Requirements
 
-- [ ] Navigation flows correctly between screens
-- [ ] Tab navigation works on both platforms
-- [ ] Modal screens present correctly
-- [ ] UI components render consistently
-- [ ] Components are reusable and customizable
+- [x] Navigation flows correctly between screens
+- [x] Tab navigation works on both platforms
+- [x] Tab icons display correctly with Ionicons
+- [x] Auth flow properly gates main app access
+- [x] Loading states prevent screen flickering
+- [x] Input component renders consistently
+- [ ] Button component renders consistently (pending creation)
+- [ ] Avatar component renders consistently (pending creation)
+- [ ] Card component renders consistently (pending creation)
+- [ ] All components are reusable and customizable
 
 ### Success Criteria
 
-- [ ] Complete navigation structure implemented
-- [ ] All navigators connected properly
-- [ ] Auth flow and main app flow separated
-- [ ] Reusable UI components created
-- [ ] Consistent styling across components
+- [x] Complete navigation structure implemented
+- [x] All navigators connected properly
+- [x] Auth flow and main app flow separated
+- [x] Placeholder screens created for all tabs
+- [x] Input component created and functional
+- [ ] Button component created (3 remaining components)
+- [ ] Avatar component created
+- [ ] Card component created
+- [x] Consistent styling across components
+
+### Phase 2 Status
+
+**Completed** (85%):
+- ✅ All navigation structure (AppNavigator, AuthNavigator, MainTabNavigator, 4 stack navigators)
+- ✅ All placeholder screens (Events, People, Chats, Profile)
+- ✅ Input component (created in Phase 1)
+- ✅ Tab icons with Ionicons
+- ✅ Proper loading states and auth gating
+
+**Remaining** (15%):
+- ⏳ Button component
+- ⏳ Avatar component
+- ⏳ Card component
+
+**Estimated Time to Complete**: 1-2 hours (creating 3 components)
+
+### Next Steps to Complete Phase 2
+
+1. **Create Button Component** (20 min)
+   - Implement variants: primary, secondary, outline, ghost
+   - Add size options: sm, md, lg
+   - Include loading and disabled states
+   - Follow design system from theme
+
+2. **Create Avatar Component** (15 min)
+   - Support image URL or initials fallback
+   - Configurable size prop
+   - Optional online status indicator
+   - Use theme colors for consistency
+
+3. **Create Card Component** (10 min)
+   - Basic container with elevation
+   - Border styling
+   - Padding options
+   - Use shadows from theme
+
+4. **Test Components** (15 min)
+   - Verify all variants render correctly
+   - Test on both iOS and Android
+   - Ensure TypeScript types are correct
+   - Confirm reusability across screens
+
+Once these 3 components are created, Phase 2 will be 100% complete and ready to proceed to Phase 3 (Events Module).
 
 ---
 
