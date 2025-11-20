@@ -21,6 +21,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
@@ -360,12 +361,16 @@ export default function EventsFeedScreen({
     <View style={styles.container}>
       {/* Filter Buttons */}
       <View style={styles.filterContainer}>
-        <View style={styles.filterScroll}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScroll}
+        >
           {renderFilterButton('all', 'All', 'apps-outline')}
           {renderFilterButton('public', 'Public', 'globe-outline')}
           {renderFilterButton('friends', 'Friends', 'people-outline')}
           {renderFilterButton('myEvents', 'My Events', 'person-outline')}
-        </View>
+        </ScrollView>
       </View>
 
       {/* Events List */}
