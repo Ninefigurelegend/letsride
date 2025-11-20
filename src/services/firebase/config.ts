@@ -1,10 +1,14 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
 import { getStorage } from 'firebase/storage';
-import { getAnalytics } from 'firebase/analytics';
+import { getAnalytics, isSupported } from 'firebase/analytics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+
+// @ts-ignore - getReactNativePersistence exists but types are not exported properly
+import { getReactNativePersistence } from 'firebase/auth';
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
@@ -21,17 +25,24 @@ const firebaseConfig = {
 // Initialize Firebase
 export const app = initializeApp(firebaseConfig);
 
+// Initialize Firebase Auth with AsyncStorage persistence
+export const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage)
+});
+
 // Initialize Firebase services
-export const auth = getAuth(app);
 export const firestore = getFirestore(app);
 export const realtimeDb = getDatabase(app);
 export const storage = getStorage(app);
 
-// Analytics (web only)
+// Analytics (only initialize if supported)
 let analytics = null;
-if (typeof window !== 'undefined') {
-  analytics = getAnalytics(app);
-}
+isSupported().then(yes => {
+  if (yes) {
+    analytics = getAnalytics(app);
+  }
+}).catch(() => {
+  // Analytics not supported in React Native, silently ignore
+});
 
 export { analytics };
-
