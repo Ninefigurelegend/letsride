@@ -1,6 +1,11 @@
 # RideApp – Full Firebase Schema
 Platform: React Native (Expo) + Firebase  
-Services used: Firestore, Authentication, Storage, Realtime Database, Cloud Messaging  
+Services used: **Firestore**, **Authentication**, **Storage**, **Realtime Database**, **Cloud Messaging**, **Cloud Functions**, **Analytics**
+
+## Database Strategy
+- **Firestore**: Structured data (users, events, friendships, chat metadata)
+- **Realtime Database**: Real-time data (messages, presence, typing indicators)
+- **Cloud Messaging (FCM)**: Push notifications for messages, events, friend requests
 
 ---
 
@@ -62,7 +67,7 @@ Services used: Firestore, Authentication, Storage, Realtime Database, Cloud Mess
 
 ---
 
-# 3. CHATS
+# 3. CHATS (Firestore)
 
 ## Collection: `/chats/{chatId}`
 
@@ -70,21 +75,24 @@ Services used: Firestore, Authentication, Storage, Realtime Database, Cloud Mess
 | Field | Type | Description |
 |-------|------|-------------|
 | `isGroup` | boolean | DM or group chat |
-| `name` | string \| null | Group name |
+| `name` | string \| null | Group name (for groups), recipient name for DMs |
 | `participants` | string[] | List of userIds |
-| `admins` | string[] | (optional, for groups) |
-| `avatarUrl` | string \| null | Group avatar |
-| `lastMessageText` | string | For chat preview |
+| `admins` | string[] | (optional, for groups) User IDs with admin privileges |
+| `avatarUrl` | string \| null | Group avatar (for groups) |
+| `lastMessageText` | string | For chat preview in list |
 | `lastMessageSender` | string | userId |
-| `lastMessageAt` | timestamp | |
-| `typing` | { [userId]: boolean } | Typing indicator |
-| `createdAt` | timestamp | |
+| `lastMessageAt` | timestamp | For sorting chat list (latest first) |
+| `createdAt` | timestamp | When chat was created |
+
+**Note**: Chats list displays both DMs and group chats together, sorted by `lastMessageAt` descending.
 
 ---
 
-# 4. MESSAGES
+# 4. MESSAGES (Realtime Database)
 
-## Subcollection: `/chats/{chatId}/messages/{messageId}`
+**Note**: Messages are stored in Realtime Database for optimal real-time performance.
+
+## Path: `/messages/{chatId}/{messageId}`
 
 ### Fields
 | Field | Type | Description |
@@ -93,27 +101,42 @@ Services used: Firestore, Authentication, Storage, Realtime Database, Cloud Mess
 | `text` | string \| null | Message text |
 | `mediaUrl` | string \| null | Image/video URL |
 | `mediaType` | 'image' \| 'video' \| null | |
-| `timestamp` | timestamp | Message sent time |
+| `timestamp` | number | Message sent time (server timestamp) |
 | `reactions` | object | `{ userId: '❤️' }` |
 | `replyTo` | string \| null | messageId it replies to |
-| `deletedFor` | string[] | User IDs who deleted it |
 | `status` | 'sent' \| 'delivered' \| 'read' | Read receipts |
 
 ---
 
-# 5. CHAT READ RECEIPTS
+# 5. TYPING INDICATORS (Realtime Database)
 
-## Subcollection: `/chats/{chatId}/readReceipts/{userId}`
+## Path: `/typing/{chatId}/{userId}`
 
 ### Fields
 | Field | Type | Description |
 |-------|------|--------------|
-| `lastReadMessageId` | string | |
-| `lastReadAt` | timestamp | |
+| `isTyping` | boolean | Whether user is currently typing |
+| `timestamp` | number | Last update time |
+
+**Note**: Typing indicators are automatically removed after 3 seconds of inactivity.
 
 ---
 
-# 6. NOTIFICATIONS (Optional Enhancement)
+# 6. PRESENCE (Realtime Database)
+
+## Path: `/presence/{userId}`
+
+### Fields
+| Field | Type | Description |
+|-------|------|-------------|
+| `state` | 'online' \| 'offline' | Current online status |
+| `lastChanged` | number | Server timestamp |
+
+**Note**: Presence is automatically managed using Firebase's `onDisconnect()` handlers.
+
+---
+
+# 7. NOTIFICATIONS (Firestore - Optional Enhancement)
 
 ## Collection: `/notifications/{notificationId}`
 
@@ -128,7 +151,7 @@ Services used: Firestore, Authentication, Storage, Realtime Database, Cloud Mess
 
 ---
 
-# 7. APP SETTINGS
+# 8. APP SETTINGS (Firestore)
 
 ## Collection: `/settings/appConfig`
 | Field | Type | Description |
@@ -138,21 +161,26 @@ Services used: Firestore, Authentication, Storage, Realtime Database, Cloud Mess
 
 ---
 
-# 8. REALTIME DATABASE (Presence System)
+# 9. REALTIME DATABASE STRUCTURE (Full Overview)
 
-Use this for online status (WhatsApp-style).
-
-## Path: `/status/{userId}`
-
-### Fields
-| Field | Type | Description |
-|-------|------|-------------|
-| `state` | 'online' \| 'offline' | |
-| `lastChanged` | timestamp | |
+```
+/
+├── /messages/{chatId}/{messageId}
+│   ├── senderId: string
+│   ├── text: string
+│   ├── timestamp: number
+│   └── ...
+├── /typing/{chatId}/{userId}
+│   ├── isTyping: boolean
+│   └── timestamp: number
+└── /presence/{userId}
+    ├── state: 'online' | 'offline'
+    └── lastChanged: number
+```
 
 ---
 
-# 9. FIREBASE STORAGE STRUCTURE
+# 10. FIREBASE STORAGE STRUCTURE
 
 ```
 /media/
@@ -164,7 +192,7 @@ Use this for online status (WhatsApp-style).
 
 ---
 
-# 10. FIRESTORE INDEXES REQUIRED
+# 11. FIRESTORE INDEXES REQUIRED
 
 ## Users
 - `users.handle` — unique
@@ -179,19 +207,12 @@ events:
 ## Chats
 ```
 chats:
-  participants ARRAY_CONTAINS
-  lastMessageAt DESC
-```
-
-## Messages
-```
-messages:
-  index: timestamp ASC
+  participants ARRAY_CONTAINS, lastMessageAt DESC
 ```
 
 ---
 
-# 11. FIRESTORE SECURITY RULES (Skeleton)
+# 12. FIRESTORE SECURITY RULES (Skeleton)
 
 ```
 rules_version = '2';
@@ -215,13 +236,8 @@ service cloud.firestore {
       allow write: if isEventOwner();
     }
 
-    // CHATS
+    // CHATS (metadata only, messages are in Realtime DB)
     match /chats/{chatId} {
-      allow read, write: if isParticipant();
-    }
-
-    // MESSAGES
-    match /chats/{chatId}/messages/{messageId} {
       allow read, write: if isParticipant();
     }
   }
@@ -230,7 +246,7 @@ service cloud.firestore {
 
 ---
 
-# 12. STORAGE RULES (Skeleton)
+# 13. STORAGE RULES (Skeleton)
 
 ```
 service firebase.storage {
@@ -249,20 +265,43 @@ service firebase.storage {
 
 ---
 
-# 13. PRESENCE RULES (Realtime DB)
+# 14. REALTIME DATABASE RULES
 
-```
+```json
 {
   "rules": {
-    "status": {
+    // Messages
+    "messages": {
+      "$chatId": {
+        "$messageId": {
+          ".read": "auth != null",
+          ".write": "auth != null && data.child('senderId').val() === auth.uid"
+        }
+      }
+    },
+    
+    // Typing indicators
+    "typing": {
+      "$chatId": {
+        "$userId": {
+          ".read": "auth != null",
+          ".write": "$userId === auth.uid"
+        }
+      }
+    },
+    
+    // Presence
+    "presence": {
       "$userId": {
-        ".read": "$userId === auth.uid",
+        ".read": "auth != null",
         ".write": "$userId === auth.uid"
       }
     }
   }
 }
 ```
+
+**Note**: Rules should be further refined to check if user is a participant in the chat for read/write access to messages and typing indicators. This requires integration with Firestore or maintaining participant lists in Realtime Database.
 
 ---
 
