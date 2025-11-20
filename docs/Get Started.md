@@ -18,6 +18,7 @@ where the typescript blank template was chosen
 ```bash
 npx expo install expo-env
 ```
+All required environment variables have been set.
 
 ## Firebase
 
