@@ -174,6 +174,15 @@ export default function ComponentExamples() {
           placeholder="Search..."
           rightElement={<ActivityIndicator size="small" color={colors.primary} />}
         />
+        
+        <Input
+          label="Multiline Input (Description)"
+          value=""
+          onChangeText={() => {}}
+          placeholder="Enter a longer description..."
+          multiline
+          numberOfLines={4}
+        />
       </Card>
 
       {/* Combined Example */}

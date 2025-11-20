@@ -167,7 +167,6 @@ export default function CreateEventScreen({
           error={errors.description}
           multiline
           numberOfLines={4}
-          style={styles.textArea}
           maxLength={500}
         />
 
@@ -301,10 +300,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
   },
   section: {
     marginBottom: spacing.lg,

@@ -25,18 +25,30 @@ export default function Input({
   containerStyle,
   leftElement,
   rightElement,
+  multiline,
+  style,
   ...textInputProps
 }: InputProps) {
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
       
-      <View style={[styles.inputContainer, error && styles.inputError]}>
+      <View style={[
+        styles.inputContainer, 
+        error && styles.inputError,
+        multiline && styles.inputContainerMultiline
+      ]}>
         {leftElement && <View style={styles.leftElement}>{leftElement}</View>}
         
         <TextInput
-          style={[styles.input, leftElement ? styles.inputWithLeft : null]}
+          style={[
+            styles.input, 
+            leftElement ? styles.inputWithLeft : null,
+            multiline && styles.inputMultiline,
+            style
+          ]}
           placeholderTextColor={colors.gray400}
+          multiline={multiline}
           {...textInputProps}
         />
         
@@ -68,6 +80,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
   },
+  inputContainerMultiline: {
+    alignItems: 'flex-start',
+    paddingVertical: spacing.md,
+  },
   inputError: {
     borderColor: colors.error,
   },
@@ -76,6 +92,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     fontSize: typography.fontSize.base,
     color: colors.textPrimary,
+  },
+  inputMultiline: {
+    paddingVertical: 0,
+    minHeight: 100,
+    textAlignVertical: 'top',
   },
   inputWithLeft: {
     paddingLeft: spacing.xs,
