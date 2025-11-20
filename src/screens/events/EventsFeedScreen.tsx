@@ -1,3 +1,20 @@
+/**
+ * EventsFeedScreen - Main events feed with filtering
+ * 
+ * PHASE 3 STATUS: ✅ Fully implemented
+ * - Public events filter: ✅ Working
+ * - My Events filter: ✅ Working
+ * - Event creation: ✅ Working
+ * - Event details navigation: ✅ Working
+ * 
+ * PHASE 4 DEPENDENCIES (Social Module):
+ * - "All" filter: ⏳ Requires friend system for security rules
+ * - "Friends" filter: ⏳ Requires friend relationships implementation
+ * 
+ * These filters are stubbed out and will show a "Coming in Phase 4" message
+ * until the Social Module implements friend relationships.
+ */
+
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -76,9 +93,24 @@ export default function EventsFeedScreen({
         case 'myEvents':
           fetchedEvents = await getMyEvents(currentUser.id);
           break;
+        case 'friends':
+          // PHASE 4 TODO: Implement friends-only events filter
+          // This requires the Social Module (Phase 4) to be completed first.
+          // Once friend relationships are implemented, this will filter events
+          // where visibility='friends' and creator is in user's friends list.
+          console.log('Friends filter selected - will be available in Phase 4 (Social Module)');
+          fetchedEvents = [];
+          break;
         case 'all':
+          // PHASE 4 TODO: Implement all events filter with proper permissions
+          // Currently blocked by production security rules that require friend system.
+          // This will work once Phase 4 (Social Module) implements friend relationships,
+          // allowing the security rules to properly evaluate event visibility.
+          console.log('All filter selected - will be available in Phase 4 (Social Module)');
+          fetchedEvents = [];
+          break;
         default:
-          fetchedEvents = await getAllEvents();
+          fetchedEvents = await getPublicEvents();
           break;
       }
 
@@ -252,22 +284,42 @@ export default function EventsFeedScreen({
     );
   };
 
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Ionicons name="calendar-outline" size={80} color={colors.gray300} />
-      <Text style={styles.emptyTitle}>No Events Found</Text>
-      <Text style={styles.emptyText}>
-        {filter === 'myEvents'
-          ? "You haven't created any events yet."
-          : 'There are no events available at the moment.'}
-      </Text>
-      <Button
-        title="Create Event"
-        onPress={() => navigation.navigate('CreateEvent')}
-        style={styles.createButton}
-      />
-    </View>
-  );
+  const renderEmptyState = () => {
+    // Show special message for Phase 4 features
+    if (filter === 'all' || filter === 'friends') {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="construct-outline" size={80} color={colors.gray300} />
+          <Text style={styles.emptyTitle}>Coming in Phase 4</Text>
+          <Text style={styles.emptyText}>
+            {filter === 'all'
+              ? 'The "All Events" filter will be available once the Social Module (Phase 4) is implemented with friend relationships.'
+              : 'The "Friends" filter will be available once the Social Module (Phase 4) is implemented with friend relationships.'}
+          </Text>
+          <Text style={[styles.emptyText, { marginTop: spacing.md, fontStyle: 'italic' }]}>
+            For now, use "Public" or "My Events" filters.
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.emptyState}>
+        <Ionicons name="calendar-outline" size={80} color={colors.gray300} />
+        <Text style={styles.emptyTitle}>No Events Found</Text>
+        <Text style={styles.emptyText}>
+          {filter === 'myEvents'
+            ? "You haven't created any events yet."
+            : 'There are no events available at the moment.'}
+        </Text>
+        <Button
+          title="Create Event"
+          onPress={() => navigation.navigate('CreateEvent')}
+          style={styles.createButton}
+        />
+      </View>
+    );
+  };
 
   const renderFilterButton = (
     filterValue: EventFilter,

@@ -177,6 +177,20 @@ export async function deleteEvent(eventId: string): Promise<void> {
 
 /**
  * Get all events (for filtering on client side)
+ * 
+ * PHASE 4 DEPENDENCY: This function works with development security rules,
+ * but requires Phase 4 (Social Module) to work with production security rules.
+ * 
+ * Production rules check each event's visibility:
+ * - public: accessible to all
+ * - friends: requires friend relationship with creator
+ * - invite: requires user to be in invited list
+ * 
+ * Until Phase 4 implements the friend system, this query will fail with
+ * production security rules if any events have visibility='friends'.
+ * 
+ * WORKAROUND: Use development security rules during Phase 3 testing, or
+ * use getPublicEvents() + getMyEvents() to fetch accessible events separately.
  */
 export async function getAllEvents(): Promise<Event[]> {
   const q = query(
@@ -190,5 +204,23 @@ export async function getAllEvents(): Promise<Event[]> {
     id: doc.id,
     ...doc.data(),
   })) as Event[];
+}
+
+/**
+ * Get events from friends (PHASE 4 TODO)
+ * 
+ * This function will be implemented in Phase 4 (Social Module) and will:
+ * 1. Fetch user's friend list from /users/{userId}/friends subcollection
+ * 2. Query events where visibility='friends' AND createdBy is in friend list
+ * 3. Combine with public events and events user participates in
+ * 
+ * @param userId - Current user's ID
+ * @returns Promise<Event[]> - Events visible to user based on friend relationships
+ */
+export async function getFriendsEvents(userId: string): Promise<Event[]> {
+  // PHASE 4 TODO: Implement this function
+  // For now, return empty array
+  console.warn('getFriendsEvents() is not yet implemented - requires Phase 4 (Social Module)');
+  return [];
 }
 

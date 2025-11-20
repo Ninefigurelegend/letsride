@@ -2794,6 +2794,25 @@ export default function EventsNavigator() {
 - Reusable component library integration
 - Theme system compliance throughout
 
+**Phase 4 Dependencies**:
+
+The following Events Module features are **stubbed out** and require Phase 4 (Social Module) completion:
+
+- ⏳ **"All Events" Filter**: Shows "Coming in Phase 4" message
+  - Blocked by production security rules requiring friend relationships
+  - Function: `getAllEvents()` needs friend system to work with visibility rules
+  
+- ⏳ **"Friends Events" Filter**: Shows "Coming in Phase 4" message  
+  - Requires friend relationships to query events from friends
+  - Function: `getFriendsEvents()` stubbed in `eventsService.ts`
+
+**Working Features** ✅:
+- ✅ "Public Events" filter - fully functional
+- ✅ "My Events" filter - fully functional  
+- ✅ Event creation, details, join/leave - fully functional
+
+See `docs/Phase4-Dependencies.md` for detailed implementation roadmap.
+
 **Next Steps**: Begin Phase 4 - Social Module (Friend Management)
 
 ---
