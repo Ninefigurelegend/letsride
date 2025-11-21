@@ -1,18 +1,13 @@
 /**
  * EventsFeedScreen - Main events feed with filtering
  * 
- * PHASE 3 STATUS: ✅ Fully implemented
+ * STATUS: ✅ Fully implemented (Phase 3 + Phase 4 integration complete)
  * - Public events filter: ✅ Working
  * - My Events filter: ✅ Working
+ * - Friends events filter: ✅ Working (Phase 4)
+ * - All events filter: ✅ Working (Phase 4)
  * - Event creation: ✅ Working
  * - Event details navigation: ✅ Working
- * 
- * PHASE 4 DEPENDENCIES (Social Module):
- * - "All" filter: ⏳ Requires friend system for security rules
- * - "Friends" filter: ⏳ Requires friend relationships implementation
- * 
- * These filters are stubbed out and will show a "Coming in Phase 4" message
- * until the Social Module implements friend relationships.
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -36,6 +31,7 @@ import {
   getPublicEvents,
   getMyEvents,
   getMyParticipatingEvents,
+  getFriendsEvents,
 } from '@/services/events/eventsService';
 import { getUserById } from '@/services/firebase/firestore';
 import { useEventsStore, EventFilter } from '@/stores/eventsStore';
@@ -103,20 +99,10 @@ export default function EventsFeedScreen({
           fetchedEvents = await getMyEvents(currentUser.id);
           break;
         case 'friends':
-          // PHASE 4 TODO: Implement friends-only events filter
-          // This requires the Social Module (Phase 4) to be completed first.
-          // Once friend relationships are implemented, this will filter events
-          // where visibility='friends' and creator is in user's friends list.
-          console.log('Friends filter selected - will be available in Phase 4 (Social Module)');
-          fetchedEvents = [];
+          fetchedEvents = await getFriendsEvents(currentUser.id);
           break;
         case 'all':
-          // PHASE 4 TODO: Implement all events filter with proper permissions
-          // Currently blocked by production security rules that require friend system.
-          // This will work once Phase 4 (Social Module) implements friend relationships,
-          // allowing the security rules to properly evaluate event visibility.
-          console.log('All filter selected - will be available in Phase 4 (Social Module)');
-          fetchedEvents = [];
+          fetchedEvents = await getAllEvents(currentUser.id);
           break;
         default:
           fetchedEvents = await getPublicEvents();
