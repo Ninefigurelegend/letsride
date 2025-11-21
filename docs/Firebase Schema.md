@@ -196,19 +196,48 @@ Services used: **Firestore**, **Authentication**, **Storage**, **Realtime Databa
 # 11. FIRESTORE INDEXES REQUIRED
 
 ## Users
-- `users.handle` — unique
+- `users.handle` — unique (for handle-based friend search)
 
 ## Events
+
+**Phase 3 + Phase 4 Compound Indexes:**
+
 ```
 events:
+  # For public events filter
   index: visibility ASC, startsAt DESC
-  index: createdBy ASC
+  
+  # For friends' events filter (Phase 4)
+  # Required for: where('createdBy', '==', friendId), where('visibility', 'in', ['public', 'friends']), orderBy('startsAt', 'desc')
+  index: createdBy ASC, visibility ASC, startsAt DESC
+  
+  # For my events filter
+  index: createdBy ASC, startsAt DESC
+  
+  # For invited events filter (Phase 4)
+  index: visibility ASC, invited ARRAY_CONTAINS, startsAt DESC
 ```
+
+**How to create these indexes:**
+
+1. **Option A - Automatic (Recommended):**
+   - Try using each filter in the Events feed
+   - Firebase will show an error with a direct link to create the index
+   - Click the link to auto-create the index
+
+2. **Option B - Manual:**
+   - Go to Firebase Console → Firestore → Indexes
+   - Click "Create Index"
+   - Select collection `events` and add the field combinations above
+   - Set sort orders as specified (ASC = Ascending, DESC = Descending)
+
+**Note**: Array-contains indexes (`invited ARRAY_CONTAINS`) may take several minutes to build on large datasets.
 
 ## Chats
 ```
 chats:
-  participants ARRAY_CONTAINS, lastMessageAt DESC
+  # For chat list sorted by latest message
+  index: participants ARRAY_CONTAINS, lastMessageAt DESC
 ```
 
 ---
@@ -259,7 +288,7 @@ service cloud.firestore {
       // Friends subcollection
       match /friends/{friendId} {
         allow read: if isOwner(userId);
-        allow write: if isOwner(userId);
+        allow write: if isOwner(userId) || friendId == request.auth.uid;
       }
       
       // Friend requests subcollection

@@ -214,25 +214,20 @@ export async function getAllEvents(userId: string): Promise<Event[]> {
         )
       : [];
 
-  // 3. Events user is invited to
-  const invitedQuery = query(
-    collection(firestore, EVENTS_COLLECTION),
-    where('invited', 'array-contains', userId),
-    orderBy('startsAt', 'desc')
-  );
-
-  // 4. Events user created (any visibility)
+  // 3. Events user created (any visibility)
   const myEventsQuery = query(
     collection(firestore, EVENTS_COLLECTION),
     where('createdBy', '==', userId),
     orderBy('startsAt', 'desc')
   );
 
+  // Note: Invited events are now available as a separate filter
+  // See getInvitedEvents() function
+
   // Execute all queries in parallel
-  const [publicSnapshot, invitedSnapshot, myEventsSnapshot, ...friendsSnapshots] =
+  const [publicSnapshot, myEventsSnapshot, ...friendsSnapshots] =
     await Promise.all([
       getDocs(publicQuery),
-      getDocs(invitedQuery),
       getDocs(myEventsQuery),
       ...friendsEventsPromises,
     ]);
@@ -242,11 +237,6 @@ export async function getAllEvents(userId: string): Promise<Event[]> {
 
   // Add public events
   publicSnapshot.docs.forEach((doc) => {
-    eventsMap.set(doc.id, { id: doc.id, ...doc.data() } as Event);
-  });
-
-  // Add invited events
-  invitedSnapshot.docs.forEach((doc) => {
     eventsMap.set(doc.id, { id: doc.id, ...doc.data() } as Event);
   });
 
@@ -289,12 +279,13 @@ export async function getFriendsEvents(userId: string): Promise<Event[]> {
     return [];
   }
 
-  // Query events from friends (public or friends-only visibility)
+  // Query events from friends (public or friends-only visibility only)
   const friendsEventsPromises = friendIds.map((friendId) =>
     getDocs(
       query(
         collection(firestore, EVENTS_COLLECTION),
         where('createdBy', '==', friendId),
+        where('visibility', 'in', ['public', 'friends']),
         orderBy('startsAt', 'desc')
       )
     )
@@ -302,23 +293,13 @@ export async function getFriendsEvents(userId: string): Promise<Event[]> {
 
   const snapshots = await Promise.all(friendsEventsPromises);
 
-  // Combine results and filter out invite-only events (unless user is invited)
+  // Combine results (invite-only events already excluded by query)
   const eventsMap = new Map<string, Event>();
   
   snapshots.forEach((snapshot) => {
     snapshot.docs.forEach((doc) => {
       const event = { id: doc.id, ...doc.data() } as Event;
-      
-      // Include event if:
-      // - visibility is public or friends
-      // - visibility is invite AND user is in invited list
-      if (
-        event.visibility === 'public' ||
-        event.visibility === 'friends' ||
-        (event.visibility === 'invite' && event.invited?.includes(userId))
-      ) {
-        eventsMap.set(doc.id, event);
-      }
+      eventsMap.set(doc.id, event);
     });
   });
 
@@ -328,5 +309,24 @@ export async function getFriendsEvents(userId: string): Promise<Event[]> {
     const bTime = b.startsAt instanceof Timestamp ? b.startsAt.toMillis() : 0;
     return bTime - aTime;
   });
+}
+
+/**
+ * Get events where user is invited
+ */
+export async function getInvitedEvents(userId: string): Promise<Event[]> {
+  const q = query(
+    collection(firestore, EVENTS_COLLECTION),
+    where('visibility', '==', 'invite'),
+    where('invited', 'array-contains', userId),
+    orderBy('startsAt', 'desc')
+  );
+
+  const querySnapshot = await getDocs(q);
+
+  return querySnapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Event[];
 }
 

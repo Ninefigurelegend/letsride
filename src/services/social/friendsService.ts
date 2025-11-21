@@ -40,18 +40,9 @@ export async function sendFriendRequest(
     throw new Error('Already friends with this user');
   }
 
-  // Check if request already sent
-  const existingRequests = await getDocs(
-    collection(firestore, `users/${toUser.id}/friendRequests`)
-  );
-  const hasPendingRequest = existingRequests.docs.some(
-    (doc) =>
-      doc.data().fromUserId === fromUserId && doc.data().status === 'pending'
-  );
-
-  if (hasPendingRequest) {
-    throw new Error('Friend request already sent');
-  }
+  // Note: We don't check for duplicate requests here because it would require
+  // reading another user's friendRequests collection, which violates security rules.
+  // The recipient can decline duplicate requests if they occur.
 
   // Create friend request
   const requestRef = doc(

@@ -6,6 +6,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { PeopleScreenProps } from '@/types/navigation';
 import { Input, Button, Card, Avatar } from '@/components/common';
@@ -30,6 +32,9 @@ export default function AddFriendScreen({
 
   const handleSearch = async () => {
     if (!currentUser) return;
+
+    // Dismiss keyboard
+    Keyboard.dismiss();
 
     // Validate handle format
     const validation = validateHandleFormat(handle);
@@ -99,80 +104,82 @@ export default function AddFriendScreen({
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Ionicons name="person-add" size={48} color={colors.primary} />
-          <Text style={styles.title}>Add a Friend</Text>
-          <Text style={styles.subtitle}>
-            Search for riders by their unique handle
-          </Text>
-        </View>
-
-        <Input
-          label="Handle"
-          value={handle}
-          onChangeText={(text) => {
-            setHandle(text.toLowerCase());
-            setError('');
-            setSearchResult(null);
-          }}
-          placeholder="e.g., johnrider"
-          autoCapitalize="none"
-          autoCorrect={false}
-          leftElement={<Text style={styles.atSymbol}>@</Text>}
-          error={error}
-          helperText="Enter the exact handle of the person you want to add"
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-        />
-
-        <Button
-          title="Search"
-          onPress={handleSearch}
-          isLoading={isSearching}
-          disabled={handle.length < 3}
-          style={styles.searchButton}
-        />
-
-        {searchResult && (
-          <Card style={styles.resultCard}>
-            <View style={styles.resultHeader}>
-              <Avatar
-                uri={searchResult.avatarUrl}
-                name={searchResult.name}
-                size={60}
-              />
-              <View style={styles.resultInfo}>
-                <Text style={styles.resultName}>{searchResult.name}</Text>
-                <Text style={styles.resultHandle}>@{searchResult.handle}</Text>
-                {searchResult.bio && (
-                  <Text style={styles.resultBio} numberOfLines={2}>
-                    {searchResult.bio}
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            <Button
-              title="Send Friend Request"
-              onPress={handleSendRequest}
-              isLoading={isSending}
-              style={styles.sendButton}
-            />
-          </Card>
-        )}
-
-        {!searchResult && !error && handle.length >= 3 && (
-          <View style={styles.helpContainer}>
-            <Ionicons
-              name="information-circle-outline"
-              size={20}
-              color={colors.info}
-            />
-            <Text style={styles.helpText}>Tap "Search" to find this user</Text>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <Ionicons name="person-add" size={48} color={colors.primary} />
+            <Text style={styles.title}>Add a Friend</Text>
+            <Text style={styles.subtitle}>
+              Search for riders by their unique handle
+            </Text>
           </View>
-        )}
-      </View>
+
+          <Input
+            label="Handle"
+            value={handle}
+            onChangeText={(text) => {
+              setHandle(text.toLowerCase());
+              setError('');
+              setSearchResult(null);
+            }}
+            placeholder="e.g., johnrider"
+            autoCapitalize="none"
+            autoCorrect={false}
+            leftElement={<Text style={styles.atSymbol}>@</Text>}
+            error={error}
+            helperText="Enter the exact handle of the person you want to add"
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
+          />
+
+          <Button
+            title="Search"
+            onPress={handleSearch}
+            isLoading={isSearching}
+            disabled={handle.length < 3}
+            style={styles.searchButton}
+          />
+
+          {searchResult && (
+            <Card style={styles.resultCard}>
+              <View style={styles.resultHeader}>
+                <Avatar
+                  uri={searchResult.avatarUrl}
+                  name={searchResult.name}
+                  size={60}
+                />
+                <View style={styles.resultInfo}>
+                  <Text style={styles.resultName}>{searchResult.name}</Text>
+                  <Text style={styles.resultHandle}>@{searchResult.handle}</Text>
+                  {searchResult.bio && (
+                    <Text style={styles.resultBio} numberOfLines={2}>
+                      {searchResult.bio}
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              <Button
+                title="Send Friend Request"
+                onPress={handleSendRequest}
+                isLoading={isSending}
+                style={styles.sendButton}
+              />
+            </Card>
+          )}
+
+          {!searchResult && !error && handle.length >= 3 && (
+            <View style={styles.helpContainer}>
+              <Ionicons
+                name="information-circle-outline"
+                size={20}
+                color={colors.info}
+              />
+              <Text style={styles.helpText}>Tap "Search" to find this user</Text>
+            </View>
+          )}
+        </View>
+      </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
 }

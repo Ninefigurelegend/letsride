@@ -2,10 +2,11 @@
  * EventsFeedScreen - Main events feed with filtering
  * 
  * STATUS: ✅ Fully implemented (Phase 3 + Phase 4 integration complete)
+ * - All events filter: ✅ Working (public + friends + my events)
  * - Public events filter: ✅ Working
- * - My Events filter: ✅ Working
  * - Friends events filter: ✅ Working (Phase 4)
- * - All events filter: ✅ Working (Phase 4)
+ * - Invited events filter: ✅ Working (Phase 4)
+ * - My Events filter: ✅ Working
  * - Event creation: ✅ Working
  * - Event details navigation: ✅ Working
  */
@@ -32,6 +33,7 @@ import {
   getMyEvents,
   getMyParticipatingEvents,
   getFriendsEvents,
+  getInvitedEvents,
 } from '@/services/events/eventsService';
 import { getUserById } from '@/services/firebase/firestore';
 import { useEventsStore, EventFilter } from '@/stores/eventsStore';
@@ -100,6 +102,9 @@ export default function EventsFeedScreen({
           break;
         case 'friends':
           fetchedEvents = await getFriendsEvents(currentUser.id);
+          break;
+        case 'invited':
+          fetchedEvents = await getInvitedEvents(currentUser.id);
           break;
         case 'all':
           fetchedEvents = await getAllEvents(currentUser.id);
@@ -173,7 +178,8 @@ export default function EventsFeedScreen({
         case 'public':
           return event.visibility === 'public';
         case 'friends':
-          return event.visibility === 'friends';
+          // getFriendsEvents() already returns the correct events
+          return true;
         case 'invited':
           return event.invited?.includes(currentUser.id);
         case 'myEvents':
@@ -293,24 +299,6 @@ export default function EventsFeedScreen({
   };
 
   const renderEmptyState = () => {
-    // Show special message for Phase 4 features
-    if (filter === 'all' || filter === 'friends') {
-      return (
-        <View style={styles.emptyState}>
-          <Ionicons name="construct-outline" size={80} color={colors.gray300} />
-          <Text style={styles.emptyTitle}>Coming in Phase 4</Text>
-          <Text style={styles.emptyText}>
-            {filter === 'all'
-              ? 'The "All Events" filter will be available once the Social Module (Phase 4) is implemented with friend relationships.'
-              : 'The "Friends" filter will be available once the Social Module (Phase 4) is implemented with friend relationships.'}
-          </Text>
-          <Text style={[styles.emptyText, { marginTop: spacing.md, fontStyle: 'italic' }]}>
-            For now, use "Public" or "My Events" filters.
-          </Text>
-        </View>
-      );
-    }
-
     return (
       <View style={styles.emptyState}>
         <Ionicons name="calendar-outline" size={80} color={colors.gray300} />
@@ -318,6 +306,10 @@ export default function EventsFeedScreen({
         <Text style={styles.emptyText}>
           {filter === 'myEvents'
             ? "You haven't created any events yet."
+            : filter === 'friends'
+            ? "Your friends haven't created any events yet."
+            : filter === 'invited'
+            ? "You don't have any event invitations."
             : 'There are no events available at the moment.'}
         </Text>
         <Button
@@ -376,6 +368,7 @@ export default function EventsFeedScreen({
           {renderFilterButton('all', 'All', 'apps-outline')}
           {renderFilterButton('public', 'Public', 'globe-outline')}
           {renderFilterButton('friends', 'Friends', 'people-outline')}
+          {renderFilterButton('invited', 'Invited', 'mail-outline')}
           {renderFilterButton('myEvents', 'My Events', 'person-outline')}
         </ScrollView>
       </View>
