@@ -215,7 +215,8 @@ events:
   index: createdBy ASC, startsAt DESC
   
   # For invited events filter (Phase 4)
-  index: visibility ASC, invited ARRAY_CONTAINS, startsAt DESC
+  # Shows all events where user is invited, regardless of visibility
+  index: invited ARRAY_CONTAINS, startsAt DESC
 ```
 
 **How to create these indexes:**
@@ -287,7 +288,7 @@ service cloud.firestore {
       
       // Friends subcollection
       match /friends/{friendId} {
-        allow read: if isOwner(userId);
+        allow read: if isOwner(userId) || isFriend(userId);
         allow write: if isOwner(userId) || friendId == request.auth.uid;
       }
       
@@ -305,7 +306,7 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (
         resource.data.visibility == 'public' ||
         (resource.data.visibility == 'friends' && isFriend(resource.data.createdBy)) ||
-        (resource.data.visibility == 'invite' && request.auth.uid in resource.data.invited) ||
+        request.auth.uid in resource.data.invited ||  // Can read if invited (any visibility)
         isOwner(resource.data.createdBy) ||
         request.auth.uid in resource.data.participants
       );
@@ -330,6 +331,7 @@ service cloud.firestore {
 
 **Key Security Features:**
 - Users can only read/write their own profile data
+- Friends can view each other's friends list (for stats display)
 - Event visibility is enforced (public, friends-only, invite-only)
 - Users can join/leave events without being the owner
 - Friend relationships are protected and bidirectional

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthScreenProps } from '@/types/navigation';
 import { signInWithGoogle } from '@/services/firebase/auth';
 import { getUserById } from '@/services/firebase/firestore';
@@ -18,6 +19,7 @@ import { colors, typography, spacing } from '@/theme';
 export default function WelcomeScreen({
   navigation,
 }: AuthScreenProps<'Welcome'>) {
+  const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState(false);
   const setAuthUser = useAuthStore((state) => state.setUser);
   const setCurrentUser = useUserStore((state) => state.setCurrentUser);
@@ -70,7 +72,7 @@ export default function WelcomeScreen({
       </View>
       
       {/* Actions */}
-      <View style={styles.actions}>
+      <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}>
         <TouchableOpacity
           style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
           onPress={handleGoogleSignIn}
@@ -121,7 +123,6 @@ const styles = StyleSheet.create({
   },
   actions: {
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xl,
   },
   primaryButton: {
     backgroundColor: colors.primary,

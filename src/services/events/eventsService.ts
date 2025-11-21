@@ -313,11 +313,11 @@ export async function getFriendsEvents(userId: string): Promise<Event[]> {
 
 /**
  * Get events where user is invited
+ * Returns all events where user is in the invited array, regardless of visibility
  */
 export async function getInvitedEvents(userId: string): Promise<Event[]> {
   const q = query(
     collection(firestore, EVENTS_COLLECTION),
-    where('visibility', '==', 'invite'),
     where('invited', 'array-contains', userId),
     orderBy('startsAt', 'desc')
   );
@@ -328,5 +328,100 @@ export async function getInvitedEvents(userId: string): Promise<Event[]> {
     id: doc.id,
     ...doc.data(),
   })) as Event[];
+}
+
+/**
+ * Remove participant from event
+ */
+export async function removeParticipant(
+  eventId: string,
+  userId: string
+): Promise<void> {
+  const eventRef = doc(firestore, EVENTS_COLLECTION, eventId);
+  const eventSnap = await getDoc(eventRef);
+  
+  if (!eventSnap.exists()) {
+    throw new Error('Event not found');
+  }
+
+  const event = eventSnap.data() as Event;
+  const updatedParticipants = event.participants.filter((id) => id !== userId);
+
+  await updateDoc(eventRef, {
+    participants: updatedParticipants,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Transfer event ownership
+ */
+export async function transferOwnership(
+  eventId: string,
+  newOwnerId: string
+): Promise<void> {
+  const eventRef = doc(firestore, EVENTS_COLLECTION, eventId);
+  await updateDoc(eventRef, {
+    createdBy: newOwnerId,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Add invited users to event
+ */
+export async function addInvitedUsers(
+  eventId: string,
+  userIds: string[]
+): Promise<void> {
+  const eventRef = doc(firestore, EVENTS_COLLECTION, eventId);
+  const eventSnap = await getDoc(eventRef);
+  
+  if (!eventSnap.exists()) {
+    throw new Error('Event not found');
+  }
+
+  const event = eventSnap.data() as Event;
+  const currentInvited = event.invited || [];
+  const currentParticipants = event.participants || [];
+  
+  // Filter out users who are already invited or participating
+  const newInvites = userIds.filter(
+    (id) => !currentInvited.includes(id) && !currentParticipants.includes(id)
+  );
+
+  if (newInvites.length === 0) {
+    throw new Error('All selected users are already invited or participating');
+  }
+
+  const updatedInvited = [...currentInvited, ...newInvites];
+
+  await updateDoc(eventRef, {
+    invited: updatedInvited,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Remove invited user from event
+ */
+export async function removeInvitedUser(
+  eventId: string,
+  userId: string
+): Promise<void> {
+  const eventRef = doc(firestore, EVENTS_COLLECTION, eventId);
+  const eventSnap = await getDoc(eventRef);
+  
+  if (!eventSnap.exists()) {
+    throw new Error('Event not found');
+  }
+
+  const event = eventSnap.data() as Event;
+  const updatedInvited = (event.invited || []).filter((id) => id !== userId);
+
+  await updateDoc(eventRef, {
+    invited: updatedInvited,
+    updatedAt: serverTimestamp(),
+  });
 }
 

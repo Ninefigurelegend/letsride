@@ -7,10 +7,12 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { EventsScreenProps } from '@/types/navigation';
 import { Button, Card, Avatar } from '@/components/common';
+import { ManageEventModal } from '@/components/events';
 import { colors, typography, spacing } from '@/theme';
 import { getEventById, joinEvent, leaveEvent, deleteEvent } from '@/services/events/eventsService';
 import { getUserById } from '@/services/firebase/firestore';
@@ -33,6 +35,7 @@ export default function EventDetailsScreen({
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showManageModal, setShowManageModal] = useState(false);
 
   useEffect(() => {
     loadEventDetails();
@@ -254,9 +257,20 @@ export default function EventDetailsScreen({
 
         {/* Participants */}
         <Card style={styles.card} elevated={false}>
-          <Text style={styles.sectionTitle}>
-            Riders Going ({participants.length})
-          </Text>
+          <View style={styles.cardHeader}>
+            <Text style={styles.sectionTitle}>
+              Riders Going ({participants.length})
+            </Text>
+            {isCreator && (
+              <TouchableOpacity
+                onPress={() => setShowManageModal(true)}
+                style={styles.manageButton}
+              >
+                <Ionicons name="settings-outline" size={20} color={colors.primary} />
+                <Text style={styles.manageButtonText}>Manage</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <View style={styles.participantsGrid}>
             {participants.map((participant) => (
               <View key={participant.id} style={styles.participantItem}>
@@ -302,6 +316,18 @@ export default function EventDetailsScreen({
             </View>
           )}
         </View>
+
+        {/* Manage Event Modal */}
+        {event && currentUser && (
+          <ManageEventModal
+            visible={showManageModal}
+            onClose={() => setShowManageModal(false)}
+            event={event}
+            participants={participants}
+            currentUserId={currentUser.id}
+            onUpdate={loadEventDetails}
+          />
+        )}
       </View>
     </ScrollView>
   );
@@ -393,6 +419,27 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     color: colors.textPrimary,
     marginBottom: spacing.md,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  manageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    marginTop: -12,
+    backgroundColor: colors.primary + '15',
+    borderRadius: 6,
+  },
+  manageButtonText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.primary,
+    marginLeft: spacing.xs,
   },
   description: {
     fontSize: typography.fontSize.base,

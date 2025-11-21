@@ -7,6 +7,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { PeopleScreenProps } from '@/types/navigation';
 import { Card, Avatar, Button } from '@/components/common';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +15,7 @@ import { useUserStore } from '@/stores/userStore';
 import { useFriendsStore } from '@/stores/friendsStore';
 import { getUserById } from '@/services/firebase/firestore';
 import { removeFriend } from '@/services/social/friendsService';
+import { firestore } from '@/services/firebase/config';
 import { colors, typography, spacing } from '@/theme';
 import { User } from '@/types/models';
 
@@ -28,11 +30,15 @@ export default function UserProfileScreen({
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [friendsCount, setFriendsCount] = useState<number>(0);
+  const [eventsCount, setEventsCount] = useState<number>(0);
+  const [statsPrivate, setStatsPrivate] = useState(false);
 
   const isFriend = friends.some((friend) => friend.id === userId);
 
   useEffect(() => {
     loadUser();
+    loadUserStats();
   }, [userId]);
 
   const loadUser = async () => {
@@ -46,6 +52,32 @@ export default function UserProfileScreen({
       navigation.goBack();
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadUserStats = async () => {
+    try {
+      // Load friends count
+      const friendsSnapshot = await getDocs(
+        collection(firestore, `users/${userId}/friends`)
+      );
+      setFriendsCount(friendsSnapshot.size);
+
+      // Load events joined count (events where user is a participant)
+      const eventsQuery = query(
+        collection(firestore, 'events'),
+        where('participants', 'array-contains', userId)
+      );
+      const eventsSnapshot = await getDocs(eventsQuery);
+      setEventsCount(eventsSnapshot.size);
+      setStatsPrivate(false);
+    } catch (error: any) {
+      console.error('Error loading user stats:', error);
+      // Check if it's a permission error
+      if (error.code === 'permission-denied') {
+        setStatsPrivate(true);
+      }
+      // Leave stats at 0
     }
   };
 
@@ -156,25 +188,34 @@ export default function UserProfileScreen({
         </View>
       )}
 
-      {/* Stats (Placeholder for future features) */}
+      {/* Stats */}
       <Card style={styles.statsCard}>
         <Text style={styles.statsTitle}>Riding Stats</Text>
-        <View style={styles.statsGrid}>
-          <View style={styles.statItem}>
-            <Ionicons
-              name="calendar-outline"
-              size={24}
-              color={colors.primary}
-            />
-            <Text style={styles.statValue}>-</Text>
-            <Text style={styles.statLabel}>Events Joined</Text>
+        {statsPrivate ? (
+          <View style={styles.privateStats}>
+            <Ionicons name="lock-closed-outline" size={32} color={colors.textSecondary} />
+            <Text style={styles.privateText}>
+              Stats are only visible to friends
+            </Text>
           </View>
-          <View style={styles.statItem}>
-            <Ionicons name="people-outline" size={24} color={colors.primary} />
-            <Text style={styles.statValue}>-</Text>
-            <Text style={styles.statLabel}>Friends</Text>
+        ) : (
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Ionicons
+                name="calendar-outline"
+                size={24}
+                color={colors.primary}
+              />
+              <Text style={styles.statValue}>{eventsCount}</Text>
+              <Text style={styles.statLabel}>Events Joined</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Ionicons name="people-outline" size={24} color={colors.primary} />
+              <Text style={styles.statValue}>{friendsCount}</Text>
+              <Text style={styles.statLabel}>Friends</Text>
+            </View>
           </View>
-        </View>
+        )}
       </Card>
     </ScrollView>
   );
@@ -275,6 +316,16 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: colors.textSecondary,
     marginTop: 4,
+  },
+  privateStats: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  privateText: {
+    fontSize: typography.fontSize.base,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+    textAlign: 'center',
   },
 });
 
