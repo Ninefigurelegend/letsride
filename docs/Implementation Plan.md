@@ -586,6 +586,18 @@ service cloud.firestore {
       }
     }
     
+    // Helper to check if user is only adding/removing themselves from event
+    function isJoiningOrLeaving() {
+      let oldParticipants = resource.data.participants;
+      let newParticipants = request.resource.data.participants;
+      let diff = newParticipants.toSet().difference(oldParticipants.toSet());
+      let removed = oldParticipants.toSet().difference(newParticipants.toSet());
+      
+      // Allow if adding only themselves OR removing only themselves
+      return (diff.size() == 1 && request.auth.uid in diff) ||
+             (removed.size() == 1 && request.auth.uid in removed);
+    }
+    
     // Events collection
     match /events/{eventId} {
       allow read: if isAuthenticated() && (
@@ -596,9 +608,11 @@ service cloud.firestore {
         request.auth.uid in resource.data.participants
       );
       allow create: if isAuthenticated() && isOwner(request.resource.data.createdBy);
-      allow update: if isOwner(resource.data.createdBy) || 
-                       request.auth.uid in resource.data.participants;
-      allow delete: if isOwner(resource.data.createdBy);
+      allow update: if isAuthenticated() && (
+        isOwner(resource.data.createdBy) ||  // Owner can update anything
+        isJoiningOrLeaving()                  // Anyone can join/leave
+      );
+      allow delete: if isAuthenticated() && isOwner(resource.data.createdBy);
     }
     
     // Chats collection
@@ -2723,7 +2737,8 @@ export default function EventsNavigator() {
 
 ### ✅ Phase 3 Completed
 
-**Completion Date**: November 20, 2025
+**Completion Date**: November 20, 2025  
+**Last Updated**: November 21, 2025
 
 **Deliverables**:
 - ✅ **Events Service Layer** (`eventsService.ts`) - Complete CRUD operations
@@ -2731,40 +2746,58 @@ export default function EventsNavigator() {
   - Join/leave event functionality
   - Public events, user events, participating events queries
   - Proper Firestore integration with timestamps
+  - Banner image upload support
 - ✅ **Events Store** (`eventsStore.ts`) - State management with filters
   - Events array, selected event, filter state
   - CRUD actions mirroring service layer
   - Error handling and loading states
-- ✅ **CreateEventScreen** - Full-featured event creation form
+- ✅ **CreateEventScreen** - Full-featured event creation & editing form
+  - **Dual Mode**: Create new events OR edit existing events
   - Title, description, location inputs with validation
   - Date/time pickers (start/end) with platform-specific UI
+  - **Banner Image Picker**: Select/crop images (16:9 aspect) from photo library
+  - **Image Upload**: Firebase Storage integration with loading states
   - Visibility selector (Public/Friends/Invite Only)
   - Real-time validation and error messages
   - Auto-adjustment of end time based on start time
+  - Dynamic screen title and button text based on mode
+  - Pre-fills all fields when editing existing event
 - ✅ **EventDetailsScreen** - Comprehensive event details
+  - **Flat Card Design**: Modern UI without elevation
+  - **Banner Image Display**: Full-width hero image (220px height)
   - Event information with icons (calendar, time, location)
   - Creator section with avatar
   - Participants grid with avatars
+  - **Edit Event Button**: Navigates to CreateEventScreen in edit mode
   - Join/Leave button for participants
   - Delete button for creators with confirmation
+  - **Auto-refresh**: Reloads data when navigating back from edit
   - Loading states for all actions
 - ✅ **EventsFeedScreen** - Main events feed with filtering
-  - Filter system (All/Public/Friends/My Events) with pills
+  - Filter system (All/Public/Friends/My Events) with horizontal scroll
   - Event cards with creator info, description, location, participants
+  - **Banner Images**: Displays event banners (180px height) with placeholders
+  - **Consistent Card Heights**: Placeholder shown when no banner exists
   - Smart date/time formatting (relative and absolute)
   - "You're going" badge for joined events
   - "Past" badge for expired events
   - Pull-to-refresh functionality
+  - **Auto-refresh on focus**: Updates when returning from event details
   - Empty states with CTAs
-  - Header button for quick event creation
+  - **Larger Header Button**: Prominent create button (32px icon) with proper alignment
 - ✅ **EventsNavigator** - Updated with modal routes
   - EventDetails modal presentation
-  - CreateEvent modal presentation
+  - CreateEvent modal presentation with optional eventId param
+- ✅ **Firebase Integration**:
+  - **Storage Service**: `uploadEventImage()` for banner uploads
+  - **Updated Security Rules**: `isJoiningOrLeaving()` helper function allows users to add/remove themselves from events
+  - **Schema Updates**: Added `bannerImageUrl` field to events collection
 - ✅ **Dependencies Installed**:
-  - `@react-native-community/datetimepicker` for date/time picking
+  - `expo-image-picker` for banner image selection (modern API)
+  - `react-native-modal-datetime-picker` for improved date/time picking (replaced `@react-native-community/datetimepicker`)
 - ✅ **Zero linter errors** - All code properly typed and formatted
 
-**Files Created** (7 total):
+**Files Created/Modified** (10 total):
 - `src/services/events/eventsService.ts`
 - `src/stores/eventsStore.ts`
 - `src/screens/events/CreateEventScreen.tsx`
@@ -2772,19 +2805,27 @@ export default function EventsNavigator() {
 - `src/screens/events/EventsFeedScreen.tsx` (updated from placeholder)
 - `src/screens/events/index.ts` (updated)
 - `src/navigation/EventsNavigator.tsx` (updated)
+- `src/types/navigation.ts` (updated - added eventId param to CreateEvent)
+- `src/types/models.ts` (updated - added bannerImageUrl to Event)
+- `docs/Firebase Schema.md` (updated - security rules and event schema)
 - `docs/Phase3-Completion-Summary.md` (documentation)
+- `docs/Phase4-Dependencies.md` (documentation)
 
 **Key Features Implemented**:
-1. **Complete Event Lifecycle**: Create → Browse → View Details → Join/Leave → Delete
-2. **Smart Filtering**: Multiple filter options with visual feedback
-3. **Rich UI**: Creator avatars, participant lists, location icons, date formatting
-4. **Form Validation**: Real-time validation with helpful error messages
-5. **Loading States**: All async operations show loading indicators
-6. **Date/Time Management**: Platform-specific pickers with validation
-7. **Optimistic Updates**: Local state updates for instant feedback
-8. **Empty States**: Helpful CTAs when no events exist
-9. **Past Event Detection**: Visual badges for expired events
-10. **Pull-to-Refresh**: Manual refresh capability
+1. **Complete Event Lifecycle**: Create → Browse → View Details → Join/Leave → **Edit** → Delete
+2. **Banner Images**: Upload, crop (16:9), display in feed and details with placeholders
+3. **Edit Mode**: Reusable CreateEventScreen for both creating and editing events
+4. **Smart Filtering**: Multiple filter options with horizontal scrollable pills
+5. **Rich UI**: Creator avatars, participant lists, location icons, date formatting, flat card design
+6. **Form Validation**: Real-time validation with helpful error messages
+7. **Loading States**: All async operations show loading indicators (including image upload)
+8. **Date/Time Management**: Platform-specific pickers with validation
+9. **Optimistic Updates**: Local state updates for instant feedback
+10. **Auto-refresh**: Feed and details reload when navigating back from actions
+11. **Empty States**: Helpful CTAs when no events exist
+12. **Past Event Detection**: Visual badges for expired events
+13. **Pull-to-Refresh**: Manual refresh capability
+14. **Consistent UI**: Banner placeholders ensure uniform card heights
 
 **Technical Achievements**:
 - Proper Firestore timestamp handling
@@ -2793,6 +2834,40 @@ export default function EventsNavigator() {
 - Type-safe navigation and state management
 - Reusable component library integration
 - Theme system compliance throughout
+- Firebase Storage integration for images
+- Advanced security rules with join/leave logic
+- Dual-mode screen architecture (create/edit)
+- Focus-based auto-refresh patterns
+
+**Post-Completion Enhancements** (November 21, 2025):
+1. **Event Editing**:
+   - Added Edit Event button in EventDetailsScreen for creators
+   - Modified CreateEventScreen to support edit mode via optional eventId param
+   - Pre-fills all fields when editing existing events
+   - Dynamic screen title and button text based on mode
+   - Separate validation for create vs edit (past events can be edited)
+
+2. **Banner Images**:
+   - Integrated expo-image-picker for image selection
+   - 16:9 aspect ratio cropping with user-adjustable frame
+   - Firebase Storage upload with progress indication
+   - Display in EventsFeedScreen (180px) and EventDetailsScreen (220px)
+   - Placeholder with icon for events without banners (consistent card heights)
+   - Replaced deprecated MediaTypeOptions API with modern array syntax
+
+3. **Security Rules Enhancement**:
+   - Added `isJoiningOrLeaving()` helper function to security rules
+   - Allows users to add/remove only themselves from participants array
+   - Prevents users from manipulating other participants
+   - Enables proper join/leave functionality
+
+4. **UI/UX Improvements**:
+   - Flat card design (elevated={false}) in EventDetailsScreen for cleaner look
+   - Banner placeholders ensure consistent card heights in feed
+   - Horizontal scrollable filter pills to prevent overflow
+   - Larger create event button (32px) with balanced header alignment
+   - Auto-refresh on navigation focus for feed and details screens
+   - Loading state separation (form submission vs image upload)
 
 **Phase 4 Dependencies**:
 
