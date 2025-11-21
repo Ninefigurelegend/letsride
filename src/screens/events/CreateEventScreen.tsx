@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,21 +7,27 @@ import {
   Alert,
   TouchableOpacity,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { EventsScreenProps } from '@/types/navigation';
 import { Input, Button } from '@/components/common';
 import { colors, typography, spacing } from '@/theme';
-import { createEvent } from '@/services/events/eventsService';
+import { createEvent, getEventById, updateEvent } from '@/services/events/eventsService';
 import { useUserStore } from '@/stores/userStore';
 import { useEventsStore } from '@/stores/eventsStore';
 import { EventVisibility } from '@/types/models';
 
 export default function CreateEventScreen({
   navigation,
+  route,
 }: EventsScreenProps<'CreateEvent'>) {
+  const { eventId } = route.params || {};
+  const isEditMode = !!eventId;
+  
   const currentUser = useUserStore((state) => state.currentUser);
   const addEvent = useEventsStore((state) => state.addEvent);
+  const updateEventInStore = useEventsStore((state) => state.updateEvent);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -33,6 +39,7 @@ export default function CreateEventScreen({
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isLoadingEvent, setIsLoadingEvent] = useState(isEditMode);
 
   // Validation errors
   const [errors, setErrors] = useState({
@@ -41,6 +48,49 @@ export default function CreateEventScreen({
     locationName: '',
     dates: '',
   });
+
+  // Load event data if in edit mode
+  useEffect(() => {
+    if (isEditMode && eventId) {
+      loadEventData();
+    }
+  }, [eventId, isEditMode]);
+
+  // Update screen title based on mode
+  useEffect(() => {
+    navigation.setOptions({
+      title: isEditMode ? 'Edit Event' : 'Create Event',
+    });
+  }, [isEditMode, navigation]);
+
+  const loadEventData = async () => {
+    setIsLoadingEvent(true);
+    try {
+      const eventData = await getEventById(eventId!);
+      if (eventData) {
+        setTitle(eventData.title);
+        setDescription(eventData.description);
+        setLocationName(eventData.locationName);
+        setVisibility(eventData.visibility);
+        // Convert Firestore Timestamp to Date
+        const startDate = (eventData.startsAt as any).toDate ? (eventData.startsAt as any).toDate() : new Date(eventData.startsAt as any);
+        const endDate = (eventData.endsAt as any).toDate ? (eventData.endsAt as any).toDate() : new Date(eventData.endsAt as any);
+        setStartsAt(startDate);
+        setEndsAt(endDate);
+      } else {
+        Alert.alert('Error', 'Event not found', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error loading event:', error);
+      Alert.alert('Error', 'Failed to load event details', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } finally {
+      setIsLoadingEvent(false);
+    }
+  };
 
   const validateForm = (): boolean => {
     const newErrors = {
@@ -62,7 +112,8 @@ export default function CreateEventScreen({
       newErrors.locationName = 'Location must be at least 3 characters';
     }
 
-    if (startsAt <= new Date()) {
+    // Only validate future dates when creating new events
+    if (!isEditMode && startsAt <= new Date()) {
       newErrors.dates = 'Start time must be in the future';
     }
 
@@ -88,25 +139,54 @@ export default function CreateEventScreen({
     setIsCreating(true);
 
     try {
-      const eventId = await createEvent(currentUser.id, {
-        title: title.trim(),
-        description: description.trim(),
-        locationName: locationName.trim(),
-        visibility,
-        startsAt,
-        endsAt,
-      });
+      if (isEditMode && eventId) {
+        // Edit existing event
+        await updateEvent(eventId, {
+          title: title.trim(),
+          description: description.trim(),
+          locationName: locationName.trim(),
+          visibility,
+          startsAt: startsAt as any,
+          endsAt: endsAt as any,
+        });
+        
+        updateEventInStore(eventId, {
+          title: title.trim(),
+          description: description.trim(),
+          locationName: locationName.trim(),
+          visibility,
+          startsAt: startsAt as any,
+          endsAt: endsAt as any,
+        });
+        
+        Alert.alert('Success', 'Event updated successfully!', [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+      } else {
+        // Create new event
+        const newEventId = await createEvent(currentUser.id, {
+          title: title.trim(),
+          description: description.trim(),
+          locationName: locationName.trim(),
+          visibility,
+          startsAt,
+          endsAt,
+        });
 
-      // Add to store (will be populated fully when feed refreshes)
-      Alert.alert('Success', 'Event created successfully!', [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+        // Add to store (will be populated fully when feed refreshes)
+        Alert.alert('Success', 'Event created successfully!', [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+      }
     } catch (error: any) {
-      console.error('Error creating event:', error);
-      Alert.alert('Error', error.message || 'Failed to create event');
+      console.error(`Error ${isEditMode ? 'updating' : 'creating'} event:`, error);
+      Alert.alert('Error', error.message || `Failed to ${isEditMode ? 'update' : 'create'} event`);
     } finally {
       setIsCreating(false);
     }
@@ -148,8 +228,17 @@ export default function CreateEventScreen({
     title.trim().length >= 3 &&
     description.trim().length >= 10 &&
     locationName.trim().length >= 3 &&
-    startsAt > new Date() &&
+    (isEditMode || startsAt > new Date()) &&
     endsAt > startsAt;
+
+  if (isLoadingEvent) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Loading event...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -282,7 +371,7 @@ export default function CreateEventScreen({
         />
 
         <Button
-          title="Create Event"
+          title={isEditMode ? 'Update Event' : 'Create Event'}
           onPress={handleCreateEvent}
           isLoading={isCreating}
           disabled={!isFormValid || isCreating}
@@ -299,6 +388,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+  loadingText: {
+    marginTop: spacing.md,
+    fontSize: typography.fontSize.base,
+    color: colors.textSecondary,
   },
   content: {
     padding: spacing.lg,

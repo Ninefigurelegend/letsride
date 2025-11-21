@@ -16,7 +16,7 @@ export type AuthStackParamList = {
 export type EventsStackParamList = {
   EventsFeed: undefined;
   EventDetails: { eventId: string };
-  CreateEvent: undefined;
+  CreateEvent: { eventId?: string }; // Optional eventId for edit mode
 };
 
 // People Stack

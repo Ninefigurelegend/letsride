@@ -77,7 +77,7 @@ export default function EventsFeedScreen({
     navigation.setOptions({
       headerRight: () => (
         <TouchableOpacity
-          onPress={() => navigation.navigate('CreateEvent')}
+          onPress={() => navigation.navigate('CreateEvent', {})}
           style={styles.headerButton}
         >
           <Ionicons name="add-circle-outline" size={28} color={colors.primary} />
@@ -323,7 +323,7 @@ export default function EventsFeedScreen({
         </Text>
         <Button
           title="Create Event"
-          onPress={() => navigation.navigate('CreateEvent')}
+          onPress={() => navigation.navigate('CreateEvent', {})}
           style={styles.createButton}
         />
       </View>

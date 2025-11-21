@@ -37,6 +37,14 @@ export default function EventDetailsScreen({
     loadEventDetails();
   }, [eventId]);
 
+  // Reload event details when screen comes into focus (e.g., after editing)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadEventDetails();
+    });
+    return unsubscribe;
+  }, [navigation, eventId]);
+
   const loadEventDetails = async () => {
     try {
       setIsLoading(true);
@@ -268,14 +276,20 @@ export default function EventDetailsScreen({
           )}
 
           {isCreator && (
-            <Button
-              title="Delete Event"
-              onPress={handleDeleteEvent}
-              isLoading={isDeleting}
-              disabled={isDeleting}
-              variant="outline"
-              style={styles.deleteButton}
-            />
+            <View style={styles.creatorActions}>
+              <Button
+                title="Edit Event"
+                onPress={() => navigation.navigate('CreateEvent', { eventId: event.id })}
+                variant="primary"
+              />
+              <Button
+                title="Delete Event"
+                onPress={handleDeleteEvent}
+                isLoading={isDeleting}
+                disabled={isDeleting}
+                variant="outline"
+              />
+            </View>
           )}
         </View>
       </View>
@@ -386,6 +400,9 @@ const styles = StyleSheet.create({
   },
   actions: {
     marginTop: spacing.lg,
+    gap: spacing.md,
+  },
+  creatorActions: {
     gap: spacing.md,
   },
   deleteButton: {
