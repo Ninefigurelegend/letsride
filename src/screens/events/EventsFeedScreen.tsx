@@ -64,6 +64,14 @@ export default function EventsFeedScreen({
     loadEvents();
   }, [filter]);
 
+  // Reload events when screen comes into focus (e.g., after joining/leaving an event)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadEvents();
+    });
+    return unsubscribe;
+  }, [navigation, filter]);
+
   useEffect(() => {
     // Set header right button
     navigation.setOptions({

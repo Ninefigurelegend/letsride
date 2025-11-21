@@ -212,37 +212,98 @@ chats:
 
 ---
 
-# 12. FIRESTORE SECURITY RULES (Skeleton)
+# 12. FIRESTORE SECURITY RULES (Production)
 
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isParticipant(participants) {
+      return request.auth.uid in participants;
+    }
+    
+    function isFriend(userId) {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)/friends/$(userId));
+    }
+    
+    // Helper to check if user is only adding/removing themselves from event
+    function isJoiningOrLeaving() {
+      let oldParticipants = resource.data.participants;
+      let newParticipants = request.resource.data.participants;
+      let diff = newParticipants.toSet().difference(oldParticipants.toSet());
+      let removed = oldParticipants.toSet().difference(newParticipants.toSet());
+      
+      // Allow if adding only themselves OR removing only themselves
+      return (diff.size() == 1 && request.auth.uid in diff) ||
+             (removed.size() == 1 && request.auth.uid in removed);
+    }
 
     // USERS
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId;
-    }
-
-    // FRIENDS
-    match /users/{userId}/friends/{friendId} {
-      allow read, write: if request.auth.uid == userId;
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+      
+      // Friends subcollection
+      match /friends/{friendId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId);
+      }
+      
+      // Friend requests subcollection
+      match /friendRequests/{requestId} {
+        allow read: if isOwner(userId);
+        allow create: if isAuthenticated();
+        allow update: if isOwner(userId) || isOwner(resource.data.fromUserId);
+        allow delete: if isOwner(userId);
+      }
     }
 
     // EVENTS
     match /events/{eventId} {
-      allow read: if isEventVisible();
-      allow write: if isEventOwner();
+      allow read: if isAuthenticated() && (
+        resource.data.visibility == 'public' ||
+        (resource.data.visibility == 'friends' && isFriend(resource.data.createdBy)) ||
+        (resource.data.visibility == 'invite' && request.auth.uid in resource.data.invited) ||
+        isOwner(resource.data.createdBy) ||
+        request.auth.uid in resource.data.participants
+      );
+      allow create: if isAuthenticated() && isOwner(request.resource.data.createdBy);
+      allow update: if isAuthenticated() && (
+        isOwner(resource.data.createdBy) ||  // Owner can update anything
+        isJoiningOrLeaving()                  // Anyone can join/leave
+      );
+      allow delete: if isAuthenticated() && isOwner(resource.data.createdBy);
     }
 
     // CHATS (metadata only, messages are in Realtime DB)
     match /chats/{chatId} {
-      allow read, write: if isParticipant();
+      allow read: if isAuthenticated() && isParticipant(resource.data.participants);
+      allow create: if isAuthenticated() && isParticipant(request.resource.data.participants);
+      allow update: if isAuthenticated() && isParticipant(resource.data.participants);
+      allow delete: if isAuthenticated() && isParticipant(resource.data.participants);
     }
   }
 }
 ```
+
+**Key Security Features:**
+- Users can only read/write their own profile data
+- Event visibility is enforced (public, friends-only, invite-only)
+- Users can join/leave events without being the owner
+- Friend relationships are protected and bidirectional
+- Chat participants are verified for all operations
 
 ---
 

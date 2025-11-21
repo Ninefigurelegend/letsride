@@ -202,7 +202,7 @@ export default function EventDetailsScreen({
         </Card>
 
         {/* Event Details */}
-        <Card>
+        <Card style={styles.card}>
           <View style={styles.detailRow}>
             <Ionicons name="calendar-outline" size={20} color={colors.primary} />
             <View style={styles.detailContent}>
@@ -219,7 +219,7 @@ export default function EventDetailsScreen({
             </View>
           </View>
 
-          <View style={styles.detailRow}>
+          <View style={[styles.detailRow, { marginBottom: 0 }]}>
             <Ionicons name="location-outline" size={20} color={colors.primary} />
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>Location</Text>
@@ -229,13 +229,13 @@ export default function EventDetailsScreen({
         </Card>
 
         {/* Description */}
-        <Card>
+        <Card style={styles.card}>
           <Text style={styles.sectionTitle}>About</Text>
           <Text style={styles.description}>{event.description}</Text>
         </Card>
 
         {/* Participants */}
-        <Card>
+        <Card style={styles.card}>
           <Text style={styles.sectionTitle}>
             Riders Going ({participants.length})
           </Text>
@@ -298,6 +298,9 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   headerCard: {
+    marginBottom: spacing.md,
+  },
+  card: {
     marginBottom: spacing.md,
   },
   titleSection: {
