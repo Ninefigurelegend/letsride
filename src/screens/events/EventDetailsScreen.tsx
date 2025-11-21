@@ -188,7 +188,7 @@ export default function EventDetailsScreen({
     <ScrollView style={styles.container}>
       <View style={styles.content}>
         {/* Event Header */}
-        <Card style={styles.headerCard}>
+        <Card style={styles.headerCard} elevated={false}>
           <View style={styles.titleSection}>
             <Text style={styles.title}>{event.title}</Text>
             <View style={styles.visibilityBadge}>
@@ -220,7 +220,7 @@ export default function EventDetailsScreen({
         )}
 
         {/* Event Details */}
-        <Card style={styles.card}>
+        <Card style={styles.card} elevated={false}>
           <View style={styles.detailRow}>
             <Ionicons name="calendar-outline" size={20} color={colors.primary} />
             <View style={styles.detailContent}>
@@ -247,13 +247,13 @@ export default function EventDetailsScreen({
         </Card>
 
         {/* Description */}
-        <Card style={styles.card}>
+        <Card style={styles.card} elevated={false}>
           <Text style={styles.sectionTitle}>About</Text>
           <Text style={styles.description}>{event.description}</Text>
         </Card>
 
         {/* Participants */}
-        <Card style={styles.card}>
+        <Card style={styles.card} elevated={false}>
           <Text style={styles.sectionTitle}>
             Riders Going ({participants.length})
           </Text>

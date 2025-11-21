@@ -79,9 +79,8 @@ export default function EventsFeedScreen({
       headerRight: () => (
         <TouchableOpacity
           onPress={() => navigation.navigate('CreateEvent', {})}
-          style={styles.headerButton}
         >
-          <Ionicons name="add-circle-outline" size={28} color={colors.primary} />
+          <Ionicons name="add-circle-outline" size={32} color={colors.primary} />
         </TouchableOpacity>
       ),
     });
@@ -424,9 +423,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.background,
-  },
-  headerButton: {
-    marginRight: spacing.md,
   },
   filterContainer: {
     backgroundColor: colors.surface,
