@@ -2896,6 +2896,23 @@ See `docs/Phase4-Dependencies.md` for detailed implementation roadmap.
 
 **Goal**: Implement friend management and social features.
 
+**Prerequisites** (Completed in previous phases):
+- ✅ Firebase Firestore service configured
+- ✅ User types and navigation types defined
+- ✅ UI components available (Button, Card, Avatar, Input)
+- ✅ PeopleNavigator with PeopleListScreen placeholder
+- ✅ Navigation structure in place
+
+**What's New in Phase 4:**
+- Friends service layer (CRUD operations for friendships and requests)
+- Friends Zustand store
+- Full implementation of PeopleListScreen with Friends/Community tabs
+- New AddFriendScreen (modal)
+- New UserProfileScreen (modal)
+- Friend request management UI
+- Search functionality by handle
+- Integration with Events Module (unblock Phase 3 dependencies)
+
 ### Tasks
 
 #### 4.1 Friends Service
@@ -2935,6 +2952,28 @@ export async function sendFriendRequest(
     throw new Error('Cannot send friend request to yourself');
   }
 
+  // Check if already friends
+  const existingFriendship = await getDocs(
+    collection(firestore, `users/${fromUserId}/friends`)
+  );
+  const isFriend = existingFriendship.docs.some(doc => doc.id === toUser.id);
+  
+  if (isFriend) {
+    throw new Error('Already friends with this user');
+  }
+
+  // Check if request already sent
+  const existingRequests = await getDocs(
+    collection(firestore, `users/${toUser.id}/friendRequests`)
+  );
+  const hasPendingRequest = existingRequests.docs.some(
+    doc => doc.data().fromUserId === fromUserId && doc.data().status === 'pending'
+  );
+  
+  if (hasPendingRequest) {
+    throw new Error('Friend request already sent');
+  }
+
   // Create friend request
   const requestRef = doc(
     collection(firestore, `users/${toUser.id}/friendRequests`)
@@ -2956,7 +2995,7 @@ export async function acceptFriendRequest(
   requestId: string,
   fromUserId: string
 ): Promise<void> {
-  // Add to both users' friends subcollections
+  // Add to both users' friends subcollections (bidirectional)
   await Promise.all([
     setDoc(doc(firestore, `users/${userId}/friends/${fromUserId}`), {
       createdAt: serverTimestamp(),
@@ -2981,12 +3020,13 @@ export async function rejectFriendRequest(
 }
 
 /**
- * Remove friend
+ * Remove friend (unfriend)
  */
 export async function removeFriend(
   userId: string,
   friendId: string
 ): Promise<void> {
+  // Remove from both users' friends subcollections (bidirectional)
   await Promise.all([
     deleteDoc(doc(firestore, `users/${userId}/friends/${friendId}`)),
     deleteDoc(doc(firestore, `users/${friendId}/friends/${userId}`)),
@@ -3003,6 +3043,10 @@ export async function getFriends(userId: string): Promise<User[]> {
 
   const friendIds = friendsSnapshot.docs.map((doc) => doc.id);
 
+  if (friendIds.length === 0) {
+    return [];
+  }
+
   // Fetch friend user data
   const friendsData = await Promise.all(
     friendIds.map((friendId) => getUserById(friendId))
@@ -3012,7 +3056,7 @@ export async function getFriends(userId: string): Promise<User[]> {
 }
 
 /**
- * Get pending friend requests
+ * Get pending friend requests (received)
  */
 export async function getPendingFriendRequests(
   userId: string
@@ -3029,6 +3073,23 @@ export async function getPendingFriendRequests(
     ...doc.data(),
   })) as FriendRequest[];
 }
+
+/**
+ * Check if users are friends
+ */
+export async function areFriends(
+  userId: string,
+  otherUserId: string
+): Promise<boolean> {
+  const friendDoc = await getDocs(
+    query(
+      collection(firestore, `users/${userId}/friends`),
+      where('__name__', '==', otherUserId)
+    )
+  );
+
+  return !friendDoc.empty;
+}
 ```
 
 #### 4.2 Friends Store
@@ -3043,7 +3104,7 @@ interface FriendsState {
   // State
   friends: User[];
   friendRequests: FriendRequest[];
-  searchResults: User[];
+  requestSenders: { [userId: string]: User }; // Cache of users who sent requests
   isLoading: boolean;
   error: string | null;
 
@@ -3053,7 +3114,7 @@ interface FriendsState {
   removeFriend: (friendId: string) => void;
   setFriendRequests: (requests: FriendRequest[]) => void;
   removeFriendRequest: (requestId: string) => void;
-  setSearchResults: (results: User[]) => void;
+  setRequestSender: (userId: string, user: User) => void;
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
@@ -3064,7 +3125,7 @@ export const useFriendsStore = create<FriendsState>((set) => ({
   // Initial state
   friends: [],
   friendRequests: [],
-  searchResults: [],
+  requestSenders: {},
   isLoading: false,
   error: null,
 
@@ -3089,7 +3150,13 @@ export const useFriendsStore = create<FriendsState>((set) => ({
       friendRequests: state.friendRequests.filter((req) => req.id !== requestId),
     })),
 
-  setSearchResults: (searchResults) => set({ searchResults }),
+  setRequestSender: (userId, user) =>
+    set((state) => ({
+      requestSenders: {
+        ...state.requestSenders,
+        [userId]: user,
+      },
+    })),
 
   setLoading: (isLoading) => set({ isLoading }),
 
@@ -3101,26 +3168,1273 @@ export const useFriendsStore = create<FriendsState>((set) => ({
     set({
       friends: [],
       friendRequests: [],
-      searchResults: [],
+      requestSenders: {},
       isLoading: false,
       error: null,
     }),
 }));
 ```
 
+#### 4.3 People Screens
+
+**Status**: PeopleListScreen already exists as placeholder
+
+**Screens to implement:**
+- ✅ `/src/screens/people/PeopleListScreen.tsx` - Already exists, needs full implementation
+- ⏳ `/src/screens/people/AddFriendScreen.tsx` - Create new
+- ⏳ `/src/screens/people/UserProfileScreen.tsx` - Create new
+
+**Available Components** (from Phase 2):
+- `Button` - Use for "Add Friend", "Remove Friend", "Accept", "Reject" actions
+- `Card` - Use for friend list items and friend request cards
+- `Avatar` - Use for displaying user profiles
+- `Input` - Use for handle search in AddFriendScreen
+
+**Implementation Requirements:**
+- PeopleListScreen should have Friends/Community top tabs (Community as placeholder)
+- Friends tab shows friends list with search, pending requests section at top
+- AddFriendScreen should search by handle with validation
+- UserProfileScreen should show full profile with remove/message options
+- Use established UI components for consistency
+- Follow theme system for styling
+
+#### 4.4 PeopleListScreen Implementation
+
+**File**: `/src/screens/people/PeopleListScreen.tsx`
+
+```typescript
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  RefreshControl,
+  TextInput,
+} from 'react-native';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import { PeopleScreenProps } from '@/types/navigation';
+import { Card, Avatar, Button } from '@/components/common';
+import { Ionicons } from '@expo/vector-icons';
+import { useFriendsStore } from '@/stores/friendsStore';
+import { useUserStore } from '@/stores/userStore';
+import { getFriends, getPendingFriendRequests, acceptFriendRequest, rejectFriendRequest } from '@/services/social/friendsService';
+import { getUserById } from '@/services/firebase/firestore';
+import { colors, typography, spacing } from '@/theme';
+import { User, FriendRequest } from '@/types/models';
+
+const Tab = createMaterialTopTabNavigator();
+
+export default function PeopleListScreen({
+  navigation,
+}: PeopleScreenProps<'PeopleList'>) {
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={() => navigation.navigate('AddFriend')}
+        >
+          <Ionicons name="person-add" size={24} color={colors.primary} />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
+
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarIndicatorStyle: {
+          backgroundColor: colors.primary,
+          height: 3,
+        },
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+        },
+        tabBarLabelStyle: {
+          fontSize: typography.fontSize.sm,
+          fontWeight: typography.fontWeight.semibold,
+          textTransform: 'none',
+        },
+      }}
+    >
+      <Tab.Screen name="Friends" component={FriendsTab} />
+      <Tab.Screen name="Community" component={CommunityTab} />
+    </Tab.Navigator>
+  );
+}
+
+function FriendsTab({ navigation }: any) {
+  const currentUser = useUserStore((state) => state.currentUser);
+  const { friends, friendRequests, requestSenders, setFriends, setFriendRequests, setRequestSender, removeFriendRequest } = useFriendsStore();
+  
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoadingRequest, setIsLoadingRequest] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    if (!currentUser) return;
+
+    try {
+      // Load friends and requests in parallel
+      const [friendsData, requestsData] = await Promise.all([
+        getFriends(currentUser.id),
+        getPendingFriendRequests(currentUser.id),
+      ]);
+
+      setFriends(friendsData);
+      setFriendRequests(requestsData);
+
+      // Load request sender data
+      for (const request of requestsData) {
+        const sender = await getUserById(request.fromUserId);
+        if (sender) {
+          setRequestSender(request.fromUserId, sender);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading friends:', error);
+    }
+  }, [currentUser, setFriends, setFriendRequests, setRequestSender]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Auto-refresh when screen comes into focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadData();
+    });
+
+    return unsubscribe;
+  }, [navigation, loadData]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadData();
+    setIsRefreshing(false);
+  };
+
+  const handleAcceptRequest = async (requestId: string, fromUserId: string) => {
+    if (!currentUser) return;
+
+    setIsLoadingRequest(requestId);
+    try {
+      await acceptFriendRequest(currentUser.id, requestId, fromUserId);
+      removeFriendRequest(requestId);
+      
+      // Reload friends to show the new friend
+      const friendsData = await getFriends(currentUser.id);
+      setFriends(friendsData);
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+    } finally {
+      setIsLoadingRequest(null);
+    }
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    if (!currentUser) return;
+
+    setIsLoadingRequest(requestId);
+    try {
+      await rejectFriendRequest(currentUser.id, requestId);
+      removeFriendRequest(requestId);
+    } catch (error) {
+      console.error('Error rejecting friend request:', error);
+    } finally {
+      setIsLoadingRequest(null);
+    }
+  };
+
+  const filteredFriends = friends.filter((friend) =>
+    friend.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    friend.handle.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const renderFriendRequest = ({ item }: { item: FriendRequest }) => {
+    const sender = requestSenders[item.fromUserId];
+    if (!sender) return null;
+
+    return (
+      <Card style={styles.requestCard}>
+        <View style={styles.requestContent}>
+          <Avatar uri={sender.avatarUrl} name={sender.name} size={50} />
+          <View style={styles.requestInfo}>
+            <Text style={styles.requestName}>{sender.name}</Text>
+            <Text style={styles.requestHandle}>@{sender.handle}</Text>
+          </View>
+        </View>
+        <View style={styles.requestActions}>
+          <Button
+            title="Accept"
+            onPress={() => handleAcceptRequest(item.id, item.fromUserId)}
+            size="sm"
+            variant="primary"
+            isLoading={isLoadingRequest === item.id}
+            style={styles.acceptButton}
+          />
+          <Button
+            title="Reject"
+            onPress={() => handleRejectRequest(item.id)}
+            size="sm"
+            variant="outline"
+            disabled={isLoadingRequest === item.id}
+          />
+        </View>
+      </Card>
+    );
+  };
+
+  const renderFriend = ({ item }: { item: User }) => (
+    <TouchableOpacity
+      onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
+    >
+      <Card style={styles.friendCard}>
+        <Avatar uri={item.avatarUrl} name={item.name} size={50} />
+        <View style={styles.friendInfo}>
+          <Text style={styles.friendName}>{item.name}</Text>
+          <Text style={styles.friendHandle}>@{item.handle}</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
+      </Card>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={styles.container}>
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color={colors.gray400} style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search friends..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholderTextColor={colors.gray400}
+        />
+      </View>
+
+      <FlatList
+        data={filteredFriends}
+        renderItem={renderFriend}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+        }
+        ListHeaderComponent={
+          friendRequests.length > 0 ? (
+            <View style={styles.requestsSection}>
+              <Text style={styles.sectionTitle}>
+                Friend Requests ({friendRequests.length})
+              </Text>
+              {friendRequests.map((request) => (
+                <View key={request.id}>{renderFriendRequest({ item: request })}</View>
+              ))}
+            </View>
+          ) : null
+        }
+        ListEmptyComponent={
+          !searchQuery ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="people-outline" size={64} color={colors.gray300} />
+              <Text style={styles.emptyTitle}>No Friends Yet</Text>
+              <Text style={styles.emptySubtitle}>
+                Start building your riding crew by adding friends
+              </Text>
+              <Button
+                title="Add Friends"
+                onPress={() => navigation.navigate('AddFriend')}
+                style={styles.emptyButton}
+              />
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>No results found</Text>
+              <Text style={styles.emptySubtitle}>
+                Try searching with a different name or handle
+              </Text>
+            </View>
+          )
+        }
+      />
+    </View>
+  );
+}
+
+function CommunityTab() {
+  return (
+    <View style={styles.placeholderContainer}>
+      <Ionicons name="people" size={64} color={colors.gray300} />
+      <Text style={styles.placeholderTitle}>Communities Coming Soon</Text>
+      <Text style={styles.placeholderSubtitle}>
+        Discover and join motorcycle communities in your area
+      </Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  headerButton: {
+    marginRight: spacing.md,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchIcon: {
+    marginRight: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
+  },
+  listContent: {
+    padding: spacing.md,
+  },
+  requestsSection: {
+    marginBottom: spacing.lg,
+  },
+  sectionTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  requestCard: {
+    marginBottom: spacing.md,
+  },
+  requestContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  requestInfo: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  requestName: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.textPrimary,
+  },
+  requestHandle: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  requestActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  acceptButton: {
+    flex: 1,
+  },
+  friendCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  friendInfo: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  friendName: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.textPrimary,
+  },
+  friendHandle: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing['3xl'],
+    paddingHorizontal: spacing.xl,
+  },
+  emptyTitle: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.textPrimary,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  emptySubtitle: {
+    fontSize: typography.fontSize.base,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: typography.lineHeight.relaxed * typography.fontSize.base,
+    marginBottom: spacing.lg,
+  },
+  emptyButton: {
+    paddingHorizontal: spacing.xl,
+  },
+  placeholderContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+    backgroundColor: colors.background,
+  },
+  placeholderTitle: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.textPrimary,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  placeholderSubtitle: {
+    fontSize: typography.fontSize.base,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: typography.lineHeight.relaxed * typography.fontSize.base,
+  },
+});
+```
+
+#### 4.5 AddFriendScreen Implementation
+
+**File**: `/src/screens/people/AddFriendScreen.tsx`
+
+```typescript
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { PeopleScreenProps } from '@/types/navigation';
+import { Input, Button, Card, Avatar } from '@/components/common';
+import { Ionicons } from '@expo/vector-icons';
+import { useUserStore } from '@/stores/userStore';
+import { sendFriendRequest } from '@/services/social/friendsService';
+import { getUserByHandle } from '@/services/firebase/firestore';
+import { validateHandleFormat } from '@/utils/validation';
+import { colors, typography, spacing } from '@/theme';
+import { User } from '@/types/models';
+
+export default function AddFriendScreen({
+  navigation,
+}: PeopleScreenProps<'AddFriend'>) {
+  const currentUser = useUserStore((state) => state.currentUser);
+  
+  const [handle, setHandle] = useState('');
+  const [error, setError] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [searchResult, setSearchResult] = useState<User | null>(null);
+
+  const handleSearch = async () => {
+    if (!currentUser) return;
+
+    // Validate handle format
+    const validation = validateHandleFormat(handle);
+    if (!validation.isValid) {
+      setError(validation.error || 'Invalid handle');
+      setSearchResult(null);
+      return;
+    }
+
+    setIsSearching(true);
+    setError('');
+    setSearchResult(null);
+
+    try {
+      // Search for user
+      const user = await getUserByHandle(handle);
+
+      if (!user) {
+        setError('User not found');
+        return;
+      }
+
+      if (user.id === currentUser.id) {
+        setError('This is your own handle');
+        return;
+      }
+
+      setSearchResult(user);
+    } catch (err) {
+      console.error('Error searching user:', err);
+      setError('Failed to search for user');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSendRequest = async () => {
+    if (!currentUser || !searchResult) return;
+
+    setIsSending(true);
+
+    try {
+      await sendFriendRequest(currentUser.id, handle);
+
+      Alert.alert(
+        'Friend Request Sent',
+        `Your friend request to @${handle} has been sent!`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              navigation.goBack();
+            },
+          },
+        ]
+      );
+    } catch (err: any) {
+      console.error('Error sending friend request:', err);
+      Alert.alert('Error', err.message || 'Failed to send friend request');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={styles.content}>
+        <View style={styles.header}>
+          <Ionicons name="person-add" size={48} color={colors.primary} />
+          <Text style={styles.title}>Add a Friend</Text>
+          <Text style={styles.subtitle}>
+            Search for riders by their unique handle
+          </Text>
+        </View>
+
+        <Input
+          label="Handle"
+          value={handle}
+          onChangeText={(text) => {
+            setHandle(text.toLowerCase());
+            setError('');
+            setSearchResult(null);
+          }}
+          placeholder="e.g., johnrider"
+          autoCapitalize="none"
+          autoCorrect={false}
+          leftElement={<Text style={styles.atSymbol}>@</Text>}
+          error={error}
+          helperText="Enter the exact handle of the person you want to add"
+          onSubmitEditing={handleSearch}
+          returnKeyType="search"
+        />
+
+        <Button
+          title="Search"
+          onPress={handleSearch}
+          isLoading={isSearching}
+          disabled={handle.length < 3}
+          style={styles.searchButton}
+        />
+
+        {searchResult && (
+          <Card style={styles.resultCard}>
+            <View style={styles.resultHeader}>
+              <Avatar
+                uri={searchResult.avatarUrl}
+                name={searchResult.name}
+                size={60}
+              />
+              <View style={styles.resultInfo}>
+                <Text style={styles.resultName}>{searchResult.name}</Text>
+                <Text style={styles.resultHandle}>@{searchResult.handle}</Text>
+                {searchResult.bio && (
+                  <Text style={styles.resultBio} numberOfLines={2}>
+                    {searchResult.bio}
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            <Button
+              title="Send Friend Request"
+              onPress={handleSendRequest}
+              isLoading={isSending}
+              style={styles.sendButton}
+            />
+          </Card>
+        )}
+
+        {!searchResult && !error && handle.length >= 3 && (
+          <View style={styles.helpContainer}>
+            <Ionicons name="information-circle-outline" size={20} color={colors.info} />
+            <Text style={styles.helpText}>
+              Tap "Search" to find this user
+            </Text>
+          </View>
+        )}
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    flex: 1,
+    padding: spacing.lg,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  title: {
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textPrimary,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  subtitle: {
+    fontSize: typography.fontSize.base,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  atSymbol: {
+    fontSize: typography.fontSize.lg,
+    color: colors.textSecondary,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  searchButton: {
+    marginTop: spacing.md,
+  },
+  resultCard: {
+    marginTop: spacing.lg,
+  },
+  resultHeader: {
+    flexDirection: 'row',
+    marginBottom: spacing.lg,
+  },
+  resultInfo: {
+    flex: 1,
+    marginLeft: spacing.md,
+    justifyContent: 'center',
+  },
+  resultName: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.textPrimary,
+  },
+  resultHandle: {
+    fontSize: typography.fontSize.base,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  resultBio: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+  },
+  sendButton: {
+    width: '100%',
+  },
+  helpContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.info + '15',
+    borderRadius: 8,
+  },
+  helpText: {
+    flex: 1,
+    marginLeft: spacing.sm,
+    fontSize: typography.fontSize.sm,
+    color: colors.info,
+  },
+});
+```
+
+#### 4.6 UserProfileScreen Implementation
+
+**File**: `/src/screens/people/UserProfileScreen.tsx`
+
+```typescript
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { PeopleScreenProps } from '@/types/navigation';
+import { Card, Avatar, Button } from '@/components/common';
+import { Ionicons } from '@expo/vector-icons';
+import { useUserStore } from '@/stores/userStore';
+import { useFriendsStore } from '@/stores/friendsStore';
+import { getUserById } from '@/services/firebase/firestore';
+import { removeFriend } from '@/services/social/friendsService';
+import { colors, typography, spacing } from '@/theme';
+import { User } from '@/types/models';
+
+export default function UserProfileScreen({
+  route,
+  navigation,
+}: PeopleScreenProps<'UserProfile'>) {
+  const { userId } = route.params;
+  const currentUser = useUserStore((state) => state.currentUser);
+  const { friends, removeFriend: removeFriendFromStore } = useFriendsStore();
+
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  const isFriend = friends.some((friend) => friend.id === userId);
+
+  useEffect(() => {
+    loadUser();
+  }, [userId]);
+
+  const loadUser = async () => {
+    setIsLoading(true);
+    try {
+      const userData = await getUserById(userId);
+      setUser(userData);
+    } catch (error) {
+      console.error('Error loading user:', error);
+      Alert.alert('Error', 'Failed to load user profile');
+      navigation.goBack();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRemoveFriend = () => {
+    if (!user) return;
+
+    Alert.alert(
+      'Remove Friend',
+      `Are you sure you want to remove @${user.handle} from your friends?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            if (!currentUser) return;
+
+            setIsRemoving(true);
+            try {
+              await removeFriend(currentUser.id, userId);
+              removeFriendFromStore(userId);
+
+              Alert.alert('Friend Removed', 'You are no longer friends', [
+                {
+                  text: 'OK',
+                  onPress: () => navigation.goBack(),
+                },
+              ]);
+            } catch (error) {
+              console.error('Error removing friend:', error);
+              Alert.alert('Error', 'Failed to remove friend');
+            } finally {
+              setIsRemoving(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSendMessage = () => {
+    // TODO: Implement in Phase 5 (Messaging Module)
+    Alert.alert('Coming Soon', 'Messaging will be available in the next update');
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Profile Header */}
+      <Card style={styles.profileCard}>
+        <View style={styles.profileHeader}>
+          <Avatar uri={user.avatarUrl} name={user.name} size={80} />
+          <View style={styles.profileInfo}>
+            <Text style={styles.name}>{user.name}</Text>
+            <Text style={styles.handle}>@{user.handle}</Text>
+            {isFriend && (
+              <View style={styles.friendBadge}>
+                <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                <Text style={styles.friendBadgeText}>Friend</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {user.bio && (
+          <View style={styles.bioSection}>
+            <Text style={styles.bioLabel}>About</Text>
+            <Text style={styles.bioText}>{user.bio}</Text>
+          </View>
+        )}
+      </Card>
+
+      {/* Actions */}
+      {isFriend && (
+        <View style={styles.actionsSection}>
+          <Button
+            title="Send Message"
+            onPress={handleSendMessage}
+            variant="primary"
+            style={styles.actionButton}
+          />
+
+          <Button
+            title="Remove Friend"
+            onPress={handleRemoveFriend}
+            variant="outline"
+            isLoading={isRemoving}
+            style={styles.actionButton}
+          />
+        </View>
+      )}
+
+      {/* Stats (Placeholder for future features) */}
+      <Card style={styles.statsCard}>
+        <Text style={styles.statsTitle}>Riding Stats</Text>
+        <View style={styles.statsGrid}>
+          <View style={styles.statItem}>
+            <Ionicons name="calendar-outline" size={24} color={colors.primary} />
+            <Text style={styles.statValue}>-</Text>
+            <Text style={styles.statLabel}>Events Joined</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Ionicons name="people-outline" size={24} color={colors.primary} />
+            <Text style={styles.statValue}>-</Text>
+            <Text style={styles.statLabel}>Friends</Text>
+          </View>
+        </View>
+      </Card>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    padding: spacing.lg,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+  profileCard: {
+    marginBottom: spacing.lg,
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileInfo: {
+    flex: 1,
+    marginLeft: spacing.lg,
+  },
+  name: {
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textPrimary,
+  },
+  handle: {
+    fontSize: typography.fontSize.base,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  friendBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  friendBadgeText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.success,
+    marginLeft: 4,
+    fontWeight: typography.fontWeight.medium,
+  },
+  bioSection: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  bioLabel: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  bioText: {
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
+    lineHeight: typography.lineHeight.relaxed * typography.fontSize.base,
+  },
+  actionsSection: {
+    marginBottom: spacing.lg,
+  },
+  actionButton: {
+    marginBottom: spacing.md,
+  },
+  statsCard: {
+    marginBottom: spacing.lg,
+  },
+  statsTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing.lg,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textPrimary,
+    marginTop: spacing.sm,
+  },
+  statLabel: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+});
+```
+
+#### 4.7 Navigation Updates
+
+**Status**: PeopleNavigator already exists with PeopleListScreen route
+
+**Updates needed:**
+- Add `AddFriend` modal screen to PeopleNavigator
+- Add `UserProfile` modal screen to PeopleNavigator
+
+**File**: `/src/navigation/PeopleNavigator.tsx`
+
+Update to include modal screens:
+
+```typescript
+import React from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { PeopleStackParamList } from '@/types/navigation';
+import PeopleListScreen from '@/screens/people/PeopleListScreen';
+import AddFriendScreen from '@/screens/people/AddFriendScreen'; // NEW
+import UserProfileScreen from '@/screens/people/UserProfileScreen'; // NEW
+import { colors } from '@/theme';
+
+const Stack = createNativeStackNavigator<PeopleStackParamList>();
+
+export default function PeopleNavigator() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: colors.surface,
+        },
+        headerTintColor: colors.textPrimary,
+        headerTitleStyle: {
+          fontWeight: '600',
+        },
+      }}
+    >
+      <Stack.Screen
+        name="PeopleList"
+        component={PeopleListScreen}
+        options={{ title: 'People' }}
+      />
+      {/* NEW: Add these modal screens */}
+      <Stack.Screen
+        name="AddFriend"
+        component={AddFriendScreen}
+        options={{
+          presentation: 'modal',
+          title: 'Add Friend',
+        }}
+      />
+      <Stack.Screen
+        name="UserProfile"
+        component={UserProfileScreen}
+        options={{
+          presentation: 'modal',
+          title: 'Profile',
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
+```
+
+#### 4.8 Integration with Events Module
+
+**Goal**: Unblock Phase 3 dependencies by implementing friend-based event queries
+
+**Files to Update**:
+1. `/src/services/events/eventsService.ts` - Implement stubbed functions
+2. `/src/screens/events/EventsFeedScreen.tsx` - Remove "Coming in Phase 4" messages
+
+**Implementation**:
+
+**Update eventsService.ts** - Replace stubbed functions:
+
+```typescript
+/**
+ * Get all events (public + friends + invited)
+ * Requires: Friend relationships
+ */
+export async function getAllEvents(userId: string): Promise<Event[]> {
+  // Get user's friend IDs
+  const friendsSnapshot = await getDocs(
+    collection(firestore, `users/${userId}/friends`)
+  );
+  const friendIds = friendsSnapshot.docs.map((doc) => doc.id);
+
+  // Query for events user can see:
+  // 1. Public events
+  const publicQuery = query(
+    collection(firestore, EVENTS_COLLECTION),
+    where('visibility', '==', 'public'),
+    orderBy('startsAt', 'desc')
+  );
+
+  // 2. Friends-only events from friends
+  const friendsEventsPromises = friendIds.map((friendId) =>
+    getDocs(
+      query(
+        collection(firestore, EVENTS_COLLECTION),
+        where('createdBy', '==', friendId),
+        where('visibility', '==', 'friends'),
+        orderBy('startsAt', 'desc')
+      )
+    )
+  );
+
+  // 3. Events user is invited to
+  const invitedQuery = query(
+    collection(firestore, EVENTS_COLLECTION),
+    where('invited', 'array-contains', userId),
+    orderBy('startsAt', 'desc')
+  );
+
+  // Execute all queries in parallel
+  const [publicSnapshot, invitedSnapshot, ...friendsSnapshots] = await Promise.all([
+    getDocs(publicQuery),
+    getDocs(invitedQuery),
+    ...friendsEventsPromises,
+  ]);
+
+  // Combine results and remove duplicates
+  const eventsMap = new Map<string, Event>();
+
+  publicSnapshot.docs.forEach((doc) => {
+    eventsMap.set(doc.id, { id: doc.id, ...doc.data() } as Event);
+  });
+
+  invitedSnapshot.docs.forEach((doc) => {
+    eventsMap.set(doc.id, { id: doc.id, ...doc.data() } as Event);
+  });
+
+  friendsSnapshots.forEach((snapshot) => {
+    snapshot.docs.forEach((doc) => {
+      eventsMap.set(doc.id, { id: doc.id, ...doc.data() } as Event);
+    });
+  });
+
+  return Array.from(eventsMap.values());
+}
+
+/**
+ * Get events from friends
+ * Requires: Friend relationships
+ */
+export async function getFriendsEvents(userId: string): Promise<Event[]> {
+  // Get user's friend IDs
+  const friendsSnapshot = await getDocs(
+    collection(firestore, `users/${userId}/friends`)
+  );
+  const friendIds = friendsSnapshot.docs.map((doc) => doc.id);
+
+  if (friendIds.length === 0) {
+    return [];
+  }
+
+  // Query events from friends (public or friends-only visibility)
+  const friendsEventsPromises = friendIds.map((friendId) =>
+    getDocs(
+      query(
+        collection(firestore, EVENTS_COLLECTION),
+        where('createdBy', '==', friendId),
+        orderBy('startsAt', 'desc')
+      )
+    )
+  );
+
+  const snapshots = await Promise.all(friendsEventsPromises);
+
+  // Combine results
+  const events: Event[] = [];
+  snapshots.forEach((snapshot) => {
+    snapshot.docs.forEach((doc) => {
+      events.push({ id: doc.id, ...doc.data() } as Event);
+    });
+  });
+
+  return events;
+}
+```
+
+**Update EventsFeedScreen.tsx** - Replace filter logic:
+
+```typescript
+// In handleFilterChange function, replace:
+case 'all':
+  // Remove: setEvents([{ id: 'placeholder', title: 'Coming in Phase 4', ... }]);
+  // Add:
+  const allEvents = await getAllEvents(currentUser.id);
+  setEvents(allEvents);
+  break;
+
+case 'friends':
+  // Remove: setEvents([{ id: 'placeholder', title: 'Coming in Phase 4', ... }]);
+  // Add:
+  const friendsEvents = await getFriendsEvents(currentUser.id);
+  setEvents(friendsEvents);
+  break;
+```
+
 ### Testing Requirements
 
-- [ ] Friend requests can be sent via handle
-- [ ] Friend requests can be accepted/rejected
-- [ ] Friends list displays correctly
-- [ ] Users can remove friends
+**Functionality:**
+- [ ] Friend requests can be sent via handle search
+- [ ] Friend requests can be accepted and rejected
+- [ ] Friends list displays correctly with search
+- [ ] Friend request count badge updates in real-time
+- [ ] Users can view friend profiles
+- [ ] Users can remove friends with confirmation
+- [ ] Handle validation prevents invalid searches
 - [ ] Security rules prevent unauthorized friend management
+
+**UI Components Integration:**
+- [ ] Button components work correctly in all friend actions
+- [ ] Card components display friend/request information clearly
+- [ ] Avatar components show user profiles
+- [ ] Input component validates handle search correctly
+- [ ] All components follow theme styling consistently
+
+**Navigation:**
+- [ ] PeopleList → AddFriend modal navigation works
+- [ ] PeopleList → UserProfile modal navigation works
+- [ ] Modal screens dismiss correctly
+- [ ] Back navigation preserves state
+- [ ] Friends/Community tabs switch smoothly
+
+**Events Module Integration:**
+- [ ] "All Events" filter works after Phase 4 completion
+- [ ] "Friends Events" filter shows events from friends
+- [ ] Security rules allow access to friends' friend-only events
+- [ ] No placeholder messages in EventsFeedScreen
 
 ### Success Criteria
 
-- [ ] Complete friend management implemented
+- [ ] Complete friend management CRUD operations
 - [ ] Friends store manages state correctly
-- [ ] Friend screens functional
+- [ ] All friend screens render and navigate properly
+- [ ] Friend search by handle works with validation
+- [ ] Friend requests send, accept, reject successfully
+- [ ] UI components used consistently throughout social module
+- [ ] Loading states provide clear user feedback
+- [ ] Empty states guide users to add friends
+- [ ] Top tabs for Friends/Community work smoothly
+- [ ] Events Module filters unblocked and functional
+
+### ✅ Phase 4 Completion Checklist
+
+**When complete, update this section with:**
+
+**Completion Date**: [Date]
+
+**Deliverables**:
+- [ ] **Friends Service Layer** (`friendsService.ts`) - Complete CRUD operations
+- [ ] **Friends Store** (`friendsStore.ts`) - State management with friend requests
+- [ ] **PeopleListScreen** - Friends/Community tabs with search and requests
+- [ ] **AddFriendScreen** - Handle-based friend search and request sending
+- [ ] **UserProfileScreen** - View friend profiles and manage friendships
+- [ ] **PeopleNavigator** - Updated with modal routes
+- [ ] **Events Module Integration** - `getAllEvents()` and `getFriendsEvents()` implemented
+- [ ] **EventsFeedScreen** - All filters functional, no placeholder messages
+- [ ] **Zero linter errors** - All code properly typed and formatted
+
+**Files Created/Modified**:
+- `src/services/social/friendsService.ts`
+- `src/stores/friendsStore.ts`
+- `src/screens/people/PeopleListScreen.tsx` (updated from placeholder)
+- `src/screens/people/AddFriendScreen.tsx` (new)
+- `src/screens/people/UserProfileScreen.tsx` (new)
+- `src/screens/people/index.ts` (updated)
+- `src/navigation/PeopleNavigator.tsx` (updated)
+- `src/services/events/eventsService.ts` (updated - implemented stubbed functions)
+- `src/screens/events/EventsFeedScreen.tsx` (updated - removed Phase 4 placeholders)
+
+**Key Features Implemented**:
+1. **Complete Friend Lifecycle**: Search → Send Request → Accept/Reject → View Profile → Remove
+2. **Handle-Based Search**: Validated search with real-time feedback
+3. **Friend Requests**: Send, receive, accept, reject with UI feedback
+4. **Top Tabs Navigation**: Friends/Community split (Community placeholder)
+5. **Friend List**: Search, filter, view profiles
+6. **Events Integration**: Friend-based event visibility and filtering
+7. **Rich UI**: Avatars, badges, empty states, loading indicators
+
+**Next Steps**: Begin Phase 5 - Messaging Module
 
 ---
 
