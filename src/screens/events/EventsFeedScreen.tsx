@@ -25,6 +25,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { EventsScreenProps } from '@/types/navigation';
@@ -240,6 +241,19 @@ export default function EventsFeedScreen({
               </View>
             )}
           </View>
+
+          {/* Banner Image or Placeholder */}
+          {event.bannerImageUrl ? (
+            <Image
+              source={{ uri: event.bannerImageUrl }}
+              style={styles.bannerImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.bannerPlaceholder}>
+              <Ionicons name="image-outline" size={48} color={colors.gray300} />
+            </View>
+          )}
 
           {/* Content */}
           <View style={styles.eventContent}>
@@ -488,6 +502,21 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.semibold,
     color: colors.white,
+  },
+  bannerImage: {
+    width: '100%',
+    height: 180,
+    marginBottom: spacing.md,
+    borderRadius: 8,
+  },
+  bannerPlaceholder: {
+    width: '100%',
+    height: 180,
+    marginBottom: spacing.md,
+    borderRadius: 8,
+    backgroundColor: colors.gray100,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   eventContent: {
     marginBottom: spacing.md,

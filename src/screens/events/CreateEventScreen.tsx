@@ -8,12 +8,16 @@ import {
   TouchableOpacity,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { EventsScreenProps } from '@/types/navigation';
 import { Input, Button } from '@/components/common';
 import { colors, typography, spacing } from '@/theme';
 import { createEvent, getEventById, updateEvent } from '@/services/events/eventsService';
+import { uploadEventImage } from '@/services/firebase/storage';
 import { useUserStore } from '@/stores/userStore';
 import { useEventsStore } from '@/stores/eventsStore';
 import { EventVisibility } from '@/types/models';
@@ -40,6 +44,9 @@ export default function CreateEventScreen({
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isLoadingEvent, setIsLoadingEvent] = useState(isEditMode);
+  const [bannerImageUri, setBannerImageUri] = useState<string | null>(null);
+  const [existingBannerUrl, setExistingBannerUrl] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Validation errors
   const [errors, setErrors] = useState({
@@ -77,6 +84,10 @@ export default function CreateEventScreen({
         const endDate = (eventData.endsAt as any).toDate ? (eventData.endsAt as any).toDate() : new Date(eventData.endsAt as any);
         setStartsAt(startDate);
         setEndsAt(endDate);
+        // Load existing banner image if available
+        if (eventData.bannerImageUrl) {
+          setExistingBannerUrl(eventData.bannerImageUrl);
+        }
       } else {
         Alert.alert('Error', 'Event not found', [
           { text: 'OK', onPress: () => navigation.goBack() },
@@ -126,6 +137,41 @@ export default function CreateEventScreen({
     return Object.values(newErrors).every((error) => error === '');
   };
 
+  const pickImage = async () => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Please grant permission to access your photo library to add a banner image.'
+        );
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setBannerImageUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const removeBannerImage = () => {
+    setBannerImageUri(null);
+    setExistingBannerUrl(null);
+  };
+
   const handleCreateEvent = async () => {
     if (!currentUser) {
       Alert.alert('Error', 'You must be logged in to create an event');
@@ -139,7 +185,16 @@ export default function CreateEventScreen({
     setIsCreating(true);
 
     try {
+      let bannerImageUrl: string | undefined = existingBannerUrl || undefined;
+
       if (isEditMode && eventId) {
+        // Upload new banner image if selected
+        if (bannerImageUri) {
+          setIsUploadingImage(true);
+          bannerImageUrl = await uploadEventImage(bannerImageUri, eventId);
+          setIsUploadingImage(false);
+        }
+
         // Edit existing event
         await updateEvent(eventId, {
           title: title.trim(),
@@ -148,6 +203,7 @@ export default function CreateEventScreen({
           visibility,
           startsAt: startsAt as any,
           endsAt: endsAt as any,
+          bannerImageUrl,
         });
         
         updateEventInStore(eventId, {
@@ -157,6 +213,7 @@ export default function CreateEventScreen({
           visibility,
           startsAt: startsAt as any,
           endsAt: endsAt as any,
+          bannerImageUrl: bannerImageUrl as any,
         });
         
         Alert.alert('Success', 'Event updated successfully!', [
@@ -166,7 +223,7 @@ export default function CreateEventScreen({
           },
         ]);
       } else {
-        // Create new event
+        // Create new event first to get the event ID
         const newEventId = await createEvent(currentUser.id, {
           title: title.trim(),
           description: description.trim(),
@@ -175,6 +232,16 @@ export default function CreateEventScreen({
           startsAt,
           endsAt,
         });
+
+        // Upload banner image if selected
+        if (bannerImageUri) {
+          setIsUploadingImage(true);
+          bannerImageUrl = await uploadEventImage(bannerImageUri, newEventId);
+          setIsUploadingImage(false);
+          
+          // Update event with banner URL
+          await updateEvent(newEventId, { bannerImageUrl });
+        }
 
         // Add to store (will be populated fully when feed refreshes)
         Alert.alert('Success', 'Event created successfully!', [
@@ -189,6 +256,7 @@ export default function CreateEventScreen({
       Alert.alert('Error', error.message || `Failed to ${isEditMode ? 'update' : 'create'} event`);
     } finally {
       setIsCreating(false);
+      setIsUploadingImage(false);
     }
   };
 
@@ -271,6 +339,39 @@ export default function CreateEventScreen({
           error={errors.locationName}
           maxLength={200}
         />
+
+        {/* Banner Image Picker */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Banner Image (Optional)</Text>
+          {(bannerImageUri || existingBannerUrl) ? (
+            <View style={styles.bannerContainer}>
+              <Image
+                source={{ uri: bannerImageUri || existingBannerUrl || '' }}
+                style={styles.bannerImage}
+                resizeMode="cover"
+              />
+              <TouchableOpacity
+                style={styles.removeBannerButton}
+                onPress={removeBannerImage}
+              >
+                <Ionicons name="close-circle" size={32} color={colors.surface} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.changeBannerButton}
+                onPress={pickImage}
+              >
+                <Ionicons name="camera" size={20} color={colors.surface} />
+                <Text style={styles.changeBannerText}>Change</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.addBannerButton} onPress={pickImage}>
+              <Ionicons name="image-outline" size={40} color={colors.textSecondary} />
+              <Text style={styles.addBannerText}>Add Banner Image</Text>
+              <Text style={styles.addBannerHint}>Recommended: 16:9 aspect ratio</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Visibility Selector */}
         <View style={styles.section}>
@@ -371,10 +472,16 @@ export default function CreateEventScreen({
         />
 
         <Button
-          title={isEditMode ? 'Update Event' : 'Create Event'}
+          title={
+            isUploadingImage
+              ? 'Uploading Image...'
+              : isEditMode
+              ? 'Update Event'
+              : 'Create Event'
+          }
           onPress={handleCreateEvent}
-          isLoading={isCreating}
-          disabled={!isFormValid || isCreating}
+          isLoading={isCreating || isUploadingImage}
+          disabled={!isFormValid || isCreating || isUploadingImage}
           style={styles.createButton}
         />
 
@@ -460,6 +567,63 @@ const styles = StyleSheet.create({
   },
   spacing: {
     height: spacing.xl,
+  },
+  bannerContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: colors.gray100,
+  },
+  bannerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  removeBannerButton: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 16,
+  },
+  changeBannerButton: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    right: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 8,
+  },
+  changeBannerText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.surface,
+  },
+  addBannerButton: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    backgroundColor: colors.gray100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  addBannerText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.textSecondary,
+  },
+  addBannerHint: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textTertiary,
   },
 });
 

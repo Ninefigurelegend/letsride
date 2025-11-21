@@ -60,6 +60,7 @@ Services used: **Firestore**, **Authentication**, **Storage**, **Realtime Databa
 | `endsAt` | timestamp | End time |
 | `locationName` | string | Meet-up location |
 | `locationCoords` | {lat, lng} | Optional GPS location |
+| `bannerImageUrl` | string (optional) | Firebase Storage URL for event banner image |
 | `participants` | string[] | User IDs |
 | `invited` | string[] | (For invite-only events) |
 | `createdAt` | timestamp | |

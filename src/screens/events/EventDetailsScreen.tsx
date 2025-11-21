@@ -6,6 +6,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { EventsScreenProps } from '@/types/navigation';
@@ -209,6 +210,15 @@ export default function EventDetailsScreen({
           )}
         </Card>
 
+        {/* Banner Image */}
+        {event.bannerImageUrl && (
+          <Image
+            source={{ uri: event.bannerImageUrl }}
+            style={styles.bannerImage}
+            resizeMode="cover"
+          />
+        )}
+
         {/* Event Details */}
         <Card style={styles.card}>
           <View style={styles.detailRow}>
@@ -316,6 +326,12 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: spacing.md,
+  },
+  bannerImage: {
+    width: '100%',
+    height: 220,
+    marginBottom: spacing.md,
+    borderRadius: 12,
   },
   titleSection: {
     marginBottom: spacing.md,

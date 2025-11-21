@@ -28,6 +28,7 @@ export interface Event {
     lat: number;
     lng: number;
   };
+  bannerImageUrl?: string;
   participants: string[];
   invited?: string[];
   createdAt: Timestamp;
