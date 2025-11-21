@@ -71,10 +71,10 @@ export default function ManageEventModal({
   }, [visible, activeTab, friendsLoaded]);
 
   useEffect(() => {
-    if (visible && activeTab === 'invited' && event.invited?.length && !invitedLoaded) {
+    if (visible && event.visibility === 'invite' && event.invited?.length && !invitedLoaded) {
       loadInvitedUsers();
     }
-  }, [visible, activeTab, event.invited, invitedLoaded]);
+  }, [visible, event.visibility, event.invited, invitedLoaded]);
 
   const loadFriends = async () => {
     setIsLoadingFriends(true);
@@ -98,10 +98,14 @@ export default function ManageEventModal({
   const loadInvitedUsers = async () => {
     setIsLoadingInvited(true);
     try {
+      const participantIds = participants.map((p) => p.id);
       const invitedList = await Promise.all(
         (event.invited || []).map((userId) => getUserById(userId))
       );
-      setInvitedUsers(invitedList.filter((u) => u !== null) as User[]);
+      const filteredInvited = invitedList.filter(
+        (u): u is User => !!u && !participantIds.includes(u.id)
+      );
+      setInvitedUsers(filteredInvited);
       setInvitedLoaded(true);
     } catch (error) {
       console.error('Error loading invited users:', error);
@@ -450,6 +454,10 @@ export default function ManageEventModal({
     }
   };
 
+  const invitedCount = invitedLoaded
+    ? invitedUsers.length
+    : event.invited?.length || 0;
+
   return (
     <Modal
       visible={visible}
@@ -503,7 +511,7 @@ export default function ManageEventModal({
                   activeTab === 'invited' && styles.tabTextActive,
                 ]}
               >
-                Invited ({event.invited?.length || 0})
+                Invited ({invitedCount})
               </Text>
             </TouchableOpacity>
           )}
@@ -681,4 +689,3 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
 });
-

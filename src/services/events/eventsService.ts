@@ -127,6 +127,8 @@ export async function joinEvent(eventId: string, userId: string): Promise<void> 
 
   await updateDoc(eventRef, {
     participants: arrayUnion(userId),
+    // Ensure users who join are no longer marked as invited
+    invited: arrayRemove(userId),
     updatedAt: serverTimestamp(),
   });
 }
@@ -338,17 +340,10 @@ export async function removeParticipant(
   userId: string
 ): Promise<void> {
   const eventRef = doc(firestore, EVENTS_COLLECTION, eventId);
-  const eventSnap = await getDoc(eventRef);
-  
-  if (!eventSnap.exists()) {
-    throw new Error('Event not found');
-  }
-
-  const event = eventSnap.data() as Event;
-  const updatedParticipants = event.participants.filter((id) => id !== userId);
 
   await updateDoc(eventRef, {
-    participants: updatedParticipants,
+    participants: arrayRemove(userId),
+    invited: arrayRemove(userId),
     updatedAt: serverTimestamp(),
   });
 }
@@ -424,4 +419,3 @@ export async function removeInvitedUser(
     updatedAt: serverTimestamp(),
   });
 }
-
