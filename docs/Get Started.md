@@ -143,9 +143,9 @@ npx expo install expo-image-picker expo-image expo-av expo-media-library
 
 ## Date & Time Pickers
 
-### React Native DateTime Picker has been installed using
+### React Native Modal DateTime Picker has been installed using
 ```bash
-npx expo install @react-native-community/datetimepicker
+npm install react-native-modal-datetime-picker
 ```
 
-Used for selecting dates and times when creating events. Provides platform-specific UI (iOS spinner, Android modal).
+Used for selecting dates and times when creating events. Provides a consistent, reliable modal picker experience on both iOS and Android platforms.

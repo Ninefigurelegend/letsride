@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { EventsScreenProps } from '@/types/navigation';
 import { Input, Button } from '@/components/common';
 import { colors, typography, spacing } from '@/theme';
@@ -112,22 +112,26 @@ export default function CreateEventScreen({
     }
   };
 
-  const handleStartDateChange = (event: any, selectedDate?: Date) => {
-    setShowStartPicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      setStartsAt(selectedDate);
-      // Auto-adjust end time if it's before new start time
-      if (endsAt <= selectedDate) {
-        setEndsAt(new Date(selectedDate.getTime() + 3600000)); // 1 hour after start
-      }
+  const handleConfirmStartDate = (date: Date) => {
+    setStartsAt(date);
+    // Auto-adjust end time if it's before new start time
+    if (endsAt <= date) {
+      setEndsAt(new Date(date.getTime() + 3600000)); // 1 hour after start
     }
+    setShowStartPicker(false);
   };
 
-  const handleEndDateChange = (event: any, selectedDate?: Date) => {
-    setShowEndPicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      setEndsAt(selectedDate);
-    }
+  const handleCancelStartDate = () => {
+    setShowStartPicker(false);
+  };
+
+  const handleConfirmEndDate = (date: Date) => {
+    setEndsAt(date);
+    setShowEndPicker(false);
+  };
+
+  const handleCancelEndDate = () => {
+    setShowEndPicker(false);
   };
 
   const formatDateTime = (date: Date): string => {
@@ -245,17 +249,16 @@ export default function CreateEventScreen({
           >
             <Text style={styles.dateButtonText}>{formatDateTime(startsAt)}</Text>
           </TouchableOpacity>
-
-          {showStartPicker && (
-            <DateTimePicker
-              value={startsAt}
-              mode="datetime"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleStartDateChange}
-              minimumDate={new Date()}
-            />
-          )}
         </View>
+
+        <DateTimePickerModal
+          isVisible={showStartPicker}
+          mode="datetime"
+          date={startsAt}
+          onConfirm={handleConfirmStartDate}
+          onCancel={handleCancelStartDate}
+          minimumDate={new Date()}
+        />
 
         <View style={styles.section}>
           <Text style={styles.label}>End Time</Text>
@@ -266,18 +269,17 @@ export default function CreateEventScreen({
             <Text style={styles.dateButtonText}>{formatDateTime(endsAt)}</Text>
           </TouchableOpacity>
 
-          {showEndPicker && (
-            <DateTimePicker
-              value={endsAt}
-              mode="datetime"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleEndDateChange}
-              minimumDate={startsAt}
-            />
-          )}
-
           {errors.dates && <Text style={styles.errorText}>{errors.dates}</Text>}
         </View>
+
+        <DateTimePickerModal
+          isVisible={showEndPicker}
+          mode="datetime"
+          date={endsAt}
+          onConfirm={handleConfirmEndDate}
+          onCancel={handleCancelEndDate}
+          minimumDate={startsAt}
+        />
 
         <Button
           title="Create Event"
