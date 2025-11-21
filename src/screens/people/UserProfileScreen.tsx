@@ -7,7 +7,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { PeopleScreenProps } from '@/types/navigation';
 import { Card, Avatar, Button } from '@/components/common';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,19 +27,29 @@ export default function UserProfileScreen({
   const currentUser = useUserStore((state) => state.currentUser);
   const { friends, removeFriend: removeFriendFromStore } = useFriendsStore();
 
+  const isOwnProfile = currentUser?.id === userId;
+  const isFriend = friends.some((friend) => friend.id === userId);
+  const canSeeStats = isOwnProfile || isFriend;
+
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRemoving, setIsRemoving] = useState(false);
   const [friendsCount, setFriendsCount] = useState<number>(0);
-  const [eventsCount, setEventsCount] = useState<number>(0);
-  const [statsPrivate, setStatsPrivate] = useState(false);
-
-  const isFriend = friends.some((friend) => friend.id === userId);
+  const [statsPrivate, setStatsPrivate] = useState(!canSeeStats);
 
   useEffect(() => {
     loadUser();
-    loadUserStats();
   }, [userId]);
+
+  useEffect(() => {
+    if (canSeeStats) {
+      loadUserStats();
+      setStatsPrivate(false);
+    } else {
+      setStatsPrivate(true);
+      setFriendsCount(0);
+    }
+  }, [userId, canSeeStats]);
 
   const loadUser = async () => {
     setIsLoading(true);
@@ -57,20 +67,11 @@ export default function UserProfileScreen({
 
   const loadUserStats = async () => {
     try {
-      // Load friends count
+      // Load friends count (visible to self and friends per security rules)
       const friendsSnapshot = await getDocs(
         collection(firestore, `users/${userId}/friends`)
       );
       setFriendsCount(friendsSnapshot.size);
-
-      // Load events joined count (events where user is a participant)
-      const eventsQuery = query(
-        collection(firestore, 'events'),
-        where('participants', 'array-contains', userId)
-      );
-      const eventsSnapshot = await getDocs(eventsQuery);
-      setEventsCount(eventsSnapshot.size);
-      setStatsPrivate(false);
     } catch (error: any) {
       console.error('Error loading user stats:', error);
       // Check if it's a permission error
@@ -124,6 +125,15 @@ export default function UserProfileScreen({
       'Coming Soon',
       'Messaging will be available in the next update'
     );
+  };
+
+  const formatJoinedSince = (timestamp: any): string => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
   if (isLoading) {
@@ -206,8 +216,10 @@ export default function UserProfileScreen({
                 size={24}
                 color={colors.primary}
               />
-              <Text style={styles.statValue}>{eventsCount}</Text>
-              <Text style={styles.statLabel}>Events Joined</Text>
+              <Text style={styles.statValue}>
+                {formatJoinedSince(user.createdAt)}
+              </Text>
+              <Text style={styles.statLabel}>Joined Since</Text>
             </View>
             <View style={styles.statItem}>
               <Ionicons name="people-outline" size={24} color={colors.primary} />
@@ -328,4 +340,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-
